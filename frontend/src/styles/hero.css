@@ -1,0 +1,211 @@
+/* ========================================
+   HERO CONTENT SECTION (After Canvas)
+   ======================================== */
+
+.hero-content-section {
+    background: rgba(250, 250, 250, 0.4);
+    position: relative;
+    z-index: 1;
+    padding-top: 120px; /* Clear fixed navbar height + spacing */
+    margin-top: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding-bottom: 6rem;
+}
+
+.hero-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 3rem;
+    width: 100%;
+}
+
+/* Hero Content */
+.hero-content {
+    max-width: 900px;
+    margin-bottom: 4rem;
+    animation: fadeInUp 1s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-headline {
+    font-size: 4.5rem;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    color: var(--text-dark); /* Dark charcoal/black for contrast */
+    font-weight: 700;
+}
+
+.headline-regular {
+    display: block;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    color: var(--text-dark); /* Dark text on white background */
+}
+
+.headline-emphasis {
+    display: block;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--gold); /* Keep gold emphasis */
+    margin: 0.5rem 0;
+    text-shadow: 0 2px 20px rgba(212, 175, 55, 0.2);
+}
+
+.hero-description {
+    font-size: 1.25rem;
+    color: #333333;
+    margin-bottom: 2.5rem;
+    line-height: 1.8;
+    font-weight: 400;
+    max-width: 800px;
+}
+
+.hero-cta-button {
+    display: inline-block;
+    padding: 1.25rem 3rem;
+    background: var(--gold); /* Keep gold button */
+    border-radius: 50px;
+    color: var(--white);
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    box-shadow: 0 10px 40px rgba(212, 175, 55, 0.3);
+    transition: all 0.3s ease;
+}
+
+.hero-cta-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 50px rgba(212, 175, 55, 0.5);
+    background: var(--gold-dark);
+}
+
+/* Stats Cards */
+.stats-cards {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 20px;
+    padding: 1.75rem 2.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 32px rgba(212, 175, 55, 0.15);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 15px 40px rgba(212, 175, 55, 0.3);
+    border: 1px solid var(--gold);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--gold); /* Gold numbers */
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.95rem;
+    color: #333333;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .hero-headline {
+        font-size: 3.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-content-section {
+        padding-top: 100px; /* Adjust for mobile navbar height */
+    }
+    
+    .hero-container {
+        padding: 0 1.5rem;
+    }
+    
+    .hero-headline {
+        font-size: 2.5rem;
+    }
+    
+    .hero-description {
+        font-size: 1.1rem;
+    }
+    
+    .hero-cta-button {
+        padding: 1rem 2.5rem;
+        font-size: 1rem;
+    }
+    
+    .stats-cards {
+        gap: 1rem;
+    }
+    
+    .stat-card {
+        flex: 1 1 calc(50% - 0.5rem);
+        padding: 1.25rem 2rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-content-section {
+        padding-top: 90px; /* Further adjust for small mobile */
+    }
+    
+    .hero-container {
+        padding: 0 1rem;
+    }
+    
+    .hero-headline {
+        font-size: 2rem;
+    }
+    
+    .hero-description {
+        font-size: 1rem;
+    }
+    
+    .hero-cta-button {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .stats-cards {
+        flex-direction: column;
+    }
+    
+    .stat-card {
+        width: 100%;
+    }
+    
+    .stat-number {
+        font-size: 1.75rem;
+    }
+}

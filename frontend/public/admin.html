@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Admin Dashboard | Advocate Sunil Sawargaonkar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/frontend/src/styles/admin.css">
+</head>
+<body>
+    <svg class="icon-sprite" aria-hidden="true">
+        <symbol id="icon-arrow-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6M9 12h12"/></symbol>
+        <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M14 8l4 4-4 4M18 12H8"/></symbol>
+        <symbol id="icon-inbox" viewBox="0 0 24 24"><path d="M4 4h16l2 10v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4L4 4zM2 14h5l2 3h6l2-3h5M8 8h8"/></symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+        <symbol id="icon-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3zM12 9v5M12 17h.01"/></symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+        <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></symbol>
+    </svg>
+    <main class="admin-shell">
+        <section class="login-panel" id="loginPanel" aria-labelledby="loginTitle">
+            <p class="eyebrow">Private workspace</p>
+            <h1 id="loginTitle">Lead dashboard</h1>
+            <p class="login-copy">Enter the administrator key to continue.</p>
+            <form id="loginForm" class="login-form">
+                <label for="adminKey">Administrator key</label>
+                <input id="adminKey" name="adminKey" type="password" autocomplete="current-password" required>
+                <p class="form-error" id="loginError" role="alert"></p>
+                <button class="button button-primary" type="submit">Open dashboard</button>
+            </form>
+        </section>
+
+        <section class="dashboard" id="dashboard" hidden>
+            <header class="admin-header">
+                <div>
+                    <a class="back-link" href="/"><svg class="icon" aria-hidden="true"><use href="#icon-arrow-left"></use></svg>Back to Site</a>
+                    <p class="eyebrow">Private workspace</p>
+                    <h1>Contact leads</h1>
+                </div>
+                <button class="button button-quiet" id="logoutButton" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-logout"></use></svg>Logout</button>
+            </header>
+
+            <div class="stats-grid" id="statsGrid" aria-live="polite"></div>
+            <nav class="filter-tabs" id="filterTabs" aria-label="Filter leads"></nav>
+            <p class="page-error" id="pageError" role="alert"></p>
+            <section class="leads-panel" aria-labelledby="leadsTitle">
+                <div class="panel-heading"><h2 id="leadsTitle">Recent enquiries</h2><span id="resultCount"></span></div>
+                <div class="table-wrap" id="leadsContainer"></div>
+                <nav class="pagination" id="pagination" aria-label="Lead pages"></nav>
+            </section>
+        </section>
+    </main>
+
+    <div class="modal-backdrop" id="detailModal" hidden>
+        <section class="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+            <button class="modal-close" id="closeModal" type="button" aria-label="Close details">&times;</button>
+            <p class="eyebrow">Lead details</p>
+            <h2 id="detailTitle">Contact</h2>
+            <div class="detail-grid" id="detailGrid"></div>
+            <div class="message-block"><span>Message</span><p id="detailMessage"></p></div>
+        </section>
+    </div>
+    <div class="toast" id="toast" role="status"><svg class="icon" id="toastIcon" aria-hidden="true"><use href="#icon-check"></use></svg><span id="toastMessage"></span></div>
+    <script src="/frontend/src/components/admin.js" defer></script>
+</body>
+</html>

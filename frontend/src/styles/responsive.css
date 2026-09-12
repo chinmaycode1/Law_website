@@ -1,0 +1,75 @@
+/* ========================================
+   RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablets and Small Desktops */
+@media (max-width: 1024px) {
+    .container {
+        padding: 0 1.5rem;
+    }
+    
+    .section-header h2 {
+        font-size: 2.5rem;
+    }
+}
+
+/* Tablets */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 1rem;
+    }
+    
+    .content-section {
+        padding: 4rem 0;
+    }
+    
+    .section-header {
+        margin-bottom: 3rem;
+    }
+    
+    .section-header h2 {
+        font-size: 2.2rem;
+    }
+    
+    .section-subtitle {
+        font-size: 1.1rem;
+    }
+}
+
+/* Mobile Phones */
+@media (max-width: 480px) {
+    .content-section {
+        padding: 3rem 0;
+    }
+    
+    .section-header h2 {
+        font-size: 1.9rem;
+    }
+    
+    .section-subtitle {
+        font-size: 1rem;
+    }
+    
+    .lead-text {
+        font-size: 1.1rem;
+    }
+}
+
+/* Very Small Screens */
+@media (max-width: 360px) {
+    .section-header h2 {
+        font-size: 1.7rem;
+    }
+}
+
+/* Landscape Orientation */
+@media (max-height: 600px) and (orientation: landscape) {
+    .content-section {
+        padding: 3rem 0;
+    }
+    
+    .hero-content-section {
+        min-height: auto;
+        padding: 4rem 0;
+    }
+}
