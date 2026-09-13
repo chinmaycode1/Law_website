@@ -8,7 +8,7 @@
         ndps: 'NDPS & Drug Offenses',
         other: 'Other'
     };
-    const statuses = ['all', 'new', 'contacted', 'resolved'];
+    const statuses = ['all', 'new', 'contacted', 'scheduled', 'resolved'];
     const state = { status: 'all', page: 1, limit: 20 };
     const elements = {
         loginPanel: document.getElementById('loginPanel'),
@@ -28,10 +28,15 @@
         detailTitle: document.getElementById('detailTitle'),
         detailGrid: document.getElementById('detailGrid'),
         detailMessage: document.getElementById('detailMessage'),
+        scheduledAtInput: document.getElementById('scheduledAtInput'),
+        scheduledNoteInput: document.getElementById('scheduledNoteInput'),
+        scheduleError: document.getElementById('scheduleError'),
+        saveScheduleButton: document.getElementById('saveScheduleButton'),
         toast: document.getElementById('toast'),
         toastIcon: document.getElementById('toastIcon'),
         toastMessage: document.getElementById('toastMessage')
     };
+    let detailContactId = null;
 
     function getKey() {
         return sessionStorage.getItem('adminKey');
@@ -87,7 +92,7 @@
 
     function renderStats(stats) {
         elements.statsGrid.replaceChildren();
-        [['new', 'New'], ['contacted', 'Contacted'], ['resolved', 'Resolved'], ['total', 'Total']].forEach(([key, label]) => {
+        [['new', 'New'], ['contacted', 'Contacted'], ['scheduled', 'Scheduled'], ['resolved', 'Resolved'], ['total', 'Total']].forEach(([key, label]) => {
             const card = document.createElement('article');
             card.className = 'stat-card';
             addText(card, label, 'stat-label');
@@ -123,7 +128,7 @@
         const select = document.createElement('select');
         select.className = 'status-select';
         select.setAttribute('aria-label', `Status for ${contact.name}`);
-        ['new', 'contacted', 'resolved'].forEach((status) => {
+        ['new', 'contacted', 'scheduled', 'resolved'].forEach((status) => {
             const option = document.createElement('option');
             option.value = status;
             option.textContent = status[0].toUpperCase() + status.slice(1);
@@ -235,14 +240,43 @@
     async function openDetails(id) {
         try {
             const contact = await request(`/contacts/${encodeURIComponent(id)}`);
+            detailContactId = contact._id;
             elements.detailTitle.textContent = contact.name;
             elements.detailGrid.replaceChildren();
             [['Name', contact.name], ['Email', contact.email], ['Phone', contact.phone], ['Case type', caseLabels[contact.caseType] || contact.caseType], ['Status', contact.status], ['Received', formatDate(contact.createdAt)]].forEach(([label, value]) => {
                 const item = document.createElement('div'); item.className = 'detail-item'; addText(item, label, 'detail-label'); const valueRow = document.createElement('div'); valueRow.className = 'detail-value'; addText(valueRow, value); if (label === 'Email' || label === 'Phone') valueRow.appendChild(actionButton(`Copy ${label.toLowerCase()}`, 'copy', () => copyValue(value))); item.appendChild(valueRow); elements.detailGrid.appendChild(item);
             });
             elements.detailMessage.textContent = contact.message;
+            elements.scheduledAtInput.value = contact.scheduledAt ? toLocalInputValue(contact.scheduledAt) : '';
+            elements.scheduledNoteInput.value = contact.scheduledNote || '';
+            elements.scheduleError.textContent = '';
             elements.detailModal.hidden = false;
         } catch (error) { showPageError(error); }
+    }
+
+    function toLocalInputValue(value) {
+        const date = new Date(value);
+        const pad = (number) => String(number).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    async function saveSchedule() {
+        elements.scheduleError.textContent = '';
+        try {
+            await request(`/contacts/${encodeURIComponent(detailContactId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scheduledAt: elements.scheduledAtInput.value ? new Date(elements.scheduledAtInput.value).toISOString() : null,
+                    scheduledNote: elements.scheduledNoteInput.value.trim()
+                })
+            });
+            showToast('Schedule updated.');
+            await loadDashboard();
+            await openDetails(detailContactId);
+        } catch (error) {
+            elements.scheduleError.textContent = 'The schedule could not be saved. Please try again.';
+        }
     }
 
     async function copyValue(value) { try { await navigator.clipboard.writeText(value); showToast('Copied to clipboard.'); } catch (error) { showToast('Could not copy that value.', true); } }
@@ -259,6 +293,7 @@
     elements.loginForm.addEventListener('submit', (event) => { event.preventDefault(); sessionStorage.setItem('adminKey', elements.adminKey.value); elements.adminKey.value = ''; showDashboard(); });
     elements.logoutButton.addEventListener('click', () => { sessionStorage.removeItem('adminKey'); showLogin(); });
     elements.closeModal.addEventListener('click', () => { elements.detailModal.hidden = true; });
+    elements.saveScheduleButton.addEventListener('click', saveSchedule);
     elements.detailModal.addEventListener('click', (event) => { if (event.target === elements.detailModal) elements.detailModal.hidden = true; });
     if (getKey()) showDashboard();
 })();

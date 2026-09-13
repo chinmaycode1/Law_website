@@ -8,7 +8,7 @@ The private lead dashboard is available at `/admin.html`. Set `ADMIN_KEY` in `ba
 node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 ```
 
-The dashboard sends this key in the `x-admin-key` header and stores it only in `sessionStorage` for the current browser session. There are no user accounts, JWTs, or persistent admin sessions. Keep the dashboard URL unlinked from public pages if preferred; removing the `Admin` link from `frontend/public/index.html` is one line.
+The dashboard sends this key in the `x-admin-key` header and stores it only in `sessionStorage` for the current browser session. Public visitors can browse freely, while Google sign-in is required only to submit a contact request and view its case status.
 
 Premium law firm website featuring full-screen Apple-style scroll-driven canvas animation with 300 optimized frames.
 
@@ -91,6 +91,8 @@ LAW_WEBSITE/
    # Edit .env with your email credentials
    # For Gmail: Use app password from https://myaccount.google.com/apppasswords
    ```
+
+   Also set `GOOGLE_CLIENT_ID` to the GIS web client ID and `SESSION_JWT_SECRET` to a long random value. Put the same GIS client ID in the `data-google-client-id` attribute on `frontend/public/index.html`.
 
    Set `MONGO_URI` to a MongoDB Atlas connection string. Atlas offers a free shared tier suitable for development: create a free cluster, create a database user, allow your development IP, and copy the Node.js connection string into `.env`.
 

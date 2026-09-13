@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const nodemailer = require('nodemailer');
 const Contact = require('../models/Contact');
+const requireAuth = require('../middleware/requireAuth');
 
 const router = express.Router();
 const phonePattern = /^[6-9]\d{9}$/;
@@ -27,14 +28,21 @@ function escapeHtml(value) {
     return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
 
-router.post('/', validateContact, async (req, res, next) => {
+router.post('/', requireAuth, validateContact, async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(422).json({ success: false, errors: errors.array().map((error) => ({ field: error.path, message: error.msg })) });
     }
 
     try {
-        const contact = await Contact.create(req.body);
+        const contact = await Contact.create({
+            name: req.body.name,
+            email: req.body.email,
+            phone: req.body.phone,
+            caseType: req.body.caseType,
+            message: req.body.message,
+            userId: req.user._id
+        });
 
         if (transporter) {
             try {

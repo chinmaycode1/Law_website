@@ -1,0 +1,18 @@
+.case-status-section { background: var(--off-white); position: relative; z-index: 1; }
+.case-status-list { display: grid; gap: 1rem; max-width: 900px; margin: 0 auto; }
+.case-status-card { padding: 1.5rem; background: var(--white); border: 1px solid var(--gray-light); border-left: 3px solid var(--gold); box-shadow: 0 8px 24px rgba(10, 22, 40, .08); }
+.case-status-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.case-status-heading h3 { margin: 0; font-size: 1.3rem; }
+.case-status-date, .case-status-note { margin: .5rem 0 0; color: var(--text-gray); font-size: .9rem; }
+.case-status-schedule { margin: 1rem 0 0; color: var(--navy-dark); font-weight: 700; }
+.status-badge { display: inline-flex; padding: .3rem .6rem; border-radius: 999px; color: var(--navy-dark); font-size: .72rem; font-weight: 700; text-transform: capitalize; }
+.status-new, .status-contacted { background: var(--gray-light); }
+.status-scheduled { background: var(--gold-light); }
+.status-resolved { background: #dce8df; color: #31563d; }
+.case-status-empty { padding: 2rem; color: var(--text-gray); text-align: center; }
+.nav-auth { display: flex; align-items: center; min-height: 40px; }
+.nav-auth > div { display: flex; align-items: center; gap: .6rem; }
+.signed-in-label { max-width: 150px; overflow: hidden; color: var(--text-dark); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.nav-auth-button { padding: .5rem .75rem; border: 1px solid var(--gold); border-radius: 3px; background: transparent; color: var(--text-dark); font-size: .78rem; font-weight: 700; }
+.contact-sign-in { min-height: 40px; }
+@media (max-width: 768px) { .nav-auth { display: none; } .case-status-heading { align-items: flex-start; flex-direction: column; } }

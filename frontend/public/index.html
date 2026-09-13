@@ -41,8 +41,10 @@
     <link rel="stylesheet" href="/frontend/src/styles/sections.css">
     <link rel="stylesheet" href="/frontend/src/styles/responsive.css">
     <link rel="stylesheet" href="/frontend/src/styles/floating-actions.css">
+    <link rel="stylesheet" href="/frontend/src/styles/case-status.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body>
+<body data-google-client-id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com">
     <svg class="icon-sprite" aria-hidden="true">
         <symbol id="icon-scales" viewBox="0 0 24 24"><path d="M12 3v18M5 6h14M5 6l-3 6a3 3 0 0 0 6 0L5 6zm14 0-3 6a3 3 0 0 0 6 0l-3-6zM8 21h8"/></symbol>
         <symbol id="icon-graduation" viewBox="0 0 24 24"><path d="m3 9 9-5 9 5-9 5-9-5zM7 11v5c3 2 7 2 10 0v-5M21 9v6"/></symbol>
@@ -79,10 +81,12 @@
                 <li><a href="#services">Services</a></li>
                 <li><a href="#testimonials">Testimonials</a></li>
                 <li><a href="#faq">FAQ</a></li>
+                <li id="caseStatusNav" hidden><a href="#case-status">Case Status</a></li>
                 <li><a href="#contact">Contact</a></li>
             </ul>
             
             <a href="#contact" class="nav-cta">Consult Now</a>
+            <div class="nav-auth" id="navAuth"><div id="googleSignIn"></div></div>
             
             <button class="mobile-menu-toggle" id="mobileToggle" aria-label="Toggle menu">
                 <span></span>
@@ -140,6 +144,17 @@
                     <div class="stat-label">Cases Won</div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <section id="case-status" class="content-section case-status-section" hidden>
+        <div class="container">
+            <div class="section-header">
+                <h2>Case Status</h2>
+                <div class="section-underline"></div>
+                <p class="section-subtitle">Follow the progress of your consultation requests.</p>
+            </div>
+            <div class="case-status-list" id="caseStatusList" aria-live="polite"></div>
         </div>
     </section>
 
@@ -406,6 +421,7 @@
                             <div class="field-error" data-error-for="message"></div>
                         </div>
                         <input type="text" name="website" tabindex="-1" autocomplete="off" hidden>
+                        <div class="contact-sign-in" id="contactGoogleSignIn"></div>
                         <button type="submit" class="submit-button">Send Message</button>
                         <div class="form-message" id="formMessage"></div>
                     </form>
@@ -444,8 +460,10 @@
 
     <!-- Scripts -->
     <script src="/frontend/src/components/navbar.js"></script>
+    <script src="/frontend/src/components/auth.js"></script>
     <script src="/frontend/src/components/canvas-animation.js"></script>
     <script src="/frontend/src/components/contact-form.js"></script>
+    <script src="/frontend/src/components/case-status.js"></script>
     <script src="/frontend/src/components/testimonials.js"></script>
     <script src="/frontend/src/components/faq.js"></script>
     <script src="/frontend/src/components/floating-actions.js"></script>

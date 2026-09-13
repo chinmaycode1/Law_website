@@ -27,6 +27,12 @@ class ContactForm {
             this.showMessage('success', 'Thank you. Your message has been received.');
             return;
         }
+
+        if (!window.lawAuth || !window.lawAuth.isSignedIn()) {
+            this.showMessage('error', 'Please sign in with Google to send your request.');
+            window.lawAuth?.focusSignIn();
+            return;
+        }
         
         // Get form data
         const formData = {
@@ -52,6 +58,7 @@ class ContactForm {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(formData)
             });
             

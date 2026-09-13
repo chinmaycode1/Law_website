@@ -4,8 +4,8 @@ const Contact = require('../models/Contact');
 const adminAuth = require('../middleware/adminAuth');
 
 const router = express.Router();
-const statuses = ['new', 'contacted', 'resolved'];
-const contactFields = '_id name email phone caseType message status createdAt updatedAt';
+const statuses = ['new', 'contacted', 'scheduled', 'resolved'];
+const contactFields = '_id name email phone caseType message status scheduledAt scheduledNote userId createdAt updatedAt';
 const adminRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 50,
@@ -23,6 +23,9 @@ function serializeContact(contact) {
         caseType: contact.caseType,
         message: contact.message,
         status: contact.status,
+        scheduledAt: contact.scheduledAt,
+        scheduledNote: contact.scheduledNote,
+        userId: contact.userId,
         createdAt: contact.createdAt,
         updatedAt: contact.updatedAt
     };
@@ -72,18 +75,30 @@ router.get('/contacts/:id', async (req, res, next) => {
 router.patch('/contacts/:id', async (req, res, next) => {
     try {
         const keys = Object.keys(req.body || {});
-        if (keys.length !== 1 || keys[0] !== 'status' || !statuses.includes(req.body.status)) {
+        const allowedKeys = ['status', 'scheduledAt', 'scheduledNote'];
+        if (!keys.length || keys.some((key) => !allowedKeys.includes(key))) {
+            return res.status(400).json({ error: 'Only status, scheduledAt, or scheduledNote can be updated' });
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'status') && !statuses.includes(req.body.status)) {
             return res.status(400).json({ error: 'Only a valid status can be updated' });
         }
 
-        const contact = await Contact.findByIdAndUpdate(
-            req.params.id,
-            { status: req.body.status },
-            { new: true, runValidators: true }
-        ).select(contactFields).lean();
-
+        let contact = await Contact.findById(req.params.id);
         if (!contact) return res.status(404).json({ error: 'Contact not found' });
-        return res.json(serializeContact(contact));
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'scheduledAt')) {
+            if (req.body.scheduledAt !== null && Number.isNaN(Date.parse(req.body.scheduledAt))) {
+                return res.status(400).json({ error: 'scheduledAt must be a valid date or null' });
+            }
+            contact.scheduledAt = req.body.scheduledAt;
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'scheduledNote')) contact.scheduledNote = req.body.scheduledNote;
+        if (Object.prototype.hasOwnProperty.call(req.body, 'status')) contact.status = req.body.status;
+        if (req.body.scheduledAt && !Object.prototype.hasOwnProperty.call(req.body, 'status') && ['new', 'contacted'].includes(contact.status)) contact.status = 'scheduled';
+        await contact.save();
+
+        return res.json(serializeContact(await Contact.findById(contact._id).select(contactFields).lean()));
     } catch (error) {
         return next(error);
     }
@@ -104,11 +119,11 @@ router.get('/stats', async (req, res, next) => {
         const grouped = await Contact.aggregate([
             { $group: { _id: '$status', count: { $sum: 1 } } }
         ]);
-        const stats = { new: 0, contacted: 0, resolved: 0, total: 0 };
+        const stats = { new: 0, contacted: 0, scheduled: 0, resolved: 0, total: 0 };
         grouped.forEach((item) => {
             if (statuses.includes(item._id)) stats[item._id] = item.count;
         });
-        stats.total = stats.new + stats.contacted + stats.resolved;
+        stats.total = stats.new + stats.contacted + stats.scheduled + stats.resolved;
         return res.json(stats);
     } catch (error) {
         return next(error);

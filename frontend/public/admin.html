@@ -62,6 +62,15 @@
             <h2 id="detailTitle">Contact</h2>
             <div class="detail-grid" id="detailGrid"></div>
             <div class="message-block"><span>Message</span><p id="detailMessage"></p></div>
+            <div class="detail-schedule" id="detailSchedule">
+                <span class="detail-label">Consultation schedule</span>
+                <label for="scheduledAtInput">Date and time</label>
+                <input id="scheduledAtInput" type="datetime-local">
+                <label for="scheduledNoteInput">Note</label>
+                <textarea id="scheduledNoteInput" rows="3" maxlength="500" placeholder="Optional location or meeting note"></textarea>
+                <p class="form-error" id="scheduleError" role="alert"></p>
+                <button class="button button-primary" id="saveScheduleButton" type="button">Save schedule</button>
+            </div>
         </section>
     </div>
     <div class="toast" id="toast" role="status"><svg class="icon" id="toastIcon" aria-hidden="true"><use href="#icon-check"></use></svg><span id="toastMessage"></span></div>

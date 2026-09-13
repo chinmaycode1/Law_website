@@ -4,11 +4,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 dotenv.config();
 const { connectDatabase, mongoose } = require('./config/db');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');
+const authRoutes = require('./routes/auth');
+const myRequestsRoutes = require('./routes/myRequests');
 
 // Load environment variables
 
@@ -24,12 +27,15 @@ app.use(morgan('dev'));
 app.use(cors({ origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by CORS'));
-} }));
+}, credentials: true }));
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: true, limit: '20kb' }));
+app.use(cookieParser());
 
+app.use('/api/auth', authRoutes);
 app.use('/api/contact', rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false }));
 app.use('/api/contact', contactRoutes);
+app.use('/api/my-requests', myRequestsRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
