@@ -10,12 +10,16 @@
 .status-scheduled { background: var(--gold-light); }
 .status-resolved { background: #dce8df; color: #31563d; }
 .case-status-empty { padding: 2rem; color: var(--text-gray); text-align: center; }
+html, body { overflow-x: hidden; }
 .nav-auth { display: flex; align-items: center; min-height: 40px; }
 .nav-auth > div { display: flex; align-items: center; gap: .6rem; }
-.signed-in-label { max-width: 150px; overflow: hidden; color: var(--text-dark); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
-.nav-auth-button { padding: .5rem .75rem; border: 1px solid var(--gold); border-radius: 3px; background: transparent; color: var(--text-dark); font-size: .78rem; font-weight: 700; }
+.signed-in-profile { display: flex; align-items: center; gap: .45rem; max-width: 155px; overflow: hidden; }
+.signed-in-avatar { display: inline-grid; flex: 0 0 2rem; width: 2rem; height: 2rem; place-items: center; border: 2px solid var(--gold); border-radius: 50%; background: var(--navy-dark); color: var(--gold-light); font-family: var(--font-serif); font-size: .95rem; font-weight: 700; }
+.signed-in-label { overflow: hidden; color: var(--text-dark); font-size: .78rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.nav-auth-button { padding: .42rem .7rem; border: 1px solid var(--gold); border-radius: 999px; background: transparent; color: var(--text-dark); font-size: .72rem; font-weight: 700; letter-spacing: .02em; cursor: pointer; transition: background .2s ease, color .2s ease, transform .2s ease; }
+.nav-auth-button:hover { background: var(--gold); color: var(--white); transform: translateY(-1px); }
 .contact-sign-in { min-height: 40px; }
-@media (max-width: 768px) { .nav-auth { display: none; } .case-status-heading { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 768px) { .nav-auth { display: flex; } .nav-auth > div { max-width: 190px; overflow: hidden; } .signed-in-profile { max-width: 105px; } .signed-in-label { display: none; } .case-status-heading { align-items: flex-start; flex-direction: column; } }
 .status-resolved { background: var(--navy-dark); color: var(--white); }
 .update-timeline { position: relative; display: grid; gap: 1rem; margin-top: 1.25rem; padding-left: 1.25rem; }
 .update-timeline::before { position: absolute; top: .3rem; bottom: .3rem; left: .25rem; width: 1px; background: var(--gray-light); content: ''; }

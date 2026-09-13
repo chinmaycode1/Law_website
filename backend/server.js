@@ -38,7 +38,10 @@ allowContentSource('style-src', 'https://fonts.googleapis.com');
 allowContentSource('font-src', 'https://fonts.gstatic.com');
 allowContentSource('img-src', 'https://*.googleusercontent.com');
 
-app.use(helmet({ contentSecurityPolicy: { directives: contentSecurityPolicy } }));
+app.use(helmet({
+    contentSecurityPolicy: { directives: contentSecurityPolicy },
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+}));
 app.use(morgan('dev'));
 app.use(cors({ origin: (origin, callback) => {
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);

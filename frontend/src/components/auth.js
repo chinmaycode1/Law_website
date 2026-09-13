@@ -3,6 +3,7 @@
     const state = { user: null };
     const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
     let googleClientId = '';
+    let googleInitialized = false;
 
     function notify() { listeners.forEach((listener) => listener(state.user)); }
     function isSignedIn() { return Boolean(state.user); }
@@ -33,16 +34,25 @@
             if (!container) return;
             container.replaceChildren();
             if (user) {
+                const profile = document.createElement('div');
+                profile.className = 'signed-in-profile';
+                profile.title = user.email || user.name;
+                const avatar = document.createElement('span');
+                avatar.className = 'signed-in-avatar';
+                avatar.textContent = (user.name || user.email || '?').trim().charAt(0).toUpperCase();
+                avatar.setAttribute('aria-hidden', 'true');
                 const signedIn = document.createElement('span');
                 signedIn.className = 'signed-in-label';
-                signedIn.textContent = `Signed in as ${user.name}`;
+                signedIn.textContent = user.name || user.email;
+                profile.append(avatar, signedIn);
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'nav-auth-button';
                 button.textContent = 'Sign out';
+                button.setAttribute('aria-label', 'Sign out');
                 button.addEventListener('click', signOut);
-                container.append(signedIn, button);
-            } else if (window.google?.accounts?.id) {
+                container.append(profile, button);
+            } else if (googleInitialized && window.google?.accounts?.id) {
                 window.google.accounts.id.renderButton(container, { theme: 'outline', size: 'medium', shape: 'rectangular' });
             }
         });
@@ -51,8 +61,13 @@
     }
 
     function initializeGoogle() {
-        if (!googleClientId || !window.google?.accounts?.id) return;
+        if (googleInitialized || !googleClientId) return;
+        if (!window.google?.accounts?.id) {
+            window.setTimeout(initializeGoogle, 100);
+            return;
+        }
         window.google.accounts.id.initialize({ client_id: googleClientId, callback: (response) => handleCredentialResponse(response).catch((error) => showAuthError(error.message)) });
+        googleInitialized = true;
         renderAuth(state.user);
     }
 
@@ -91,5 +106,9 @@
     }
 
     window.lawAuth = { get user() { return state.user; }, isSignedIn, focusSignIn, subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); } };
-    document.addEventListener('DOMContentLoaded', async () => { await loadGoogleConfig(); restoreSession(); window.setTimeout(initializeGoogle, 250); });
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadGoogleConfig();
+        await restoreSession();
+        initializeGoogle();
+    });
 })();
