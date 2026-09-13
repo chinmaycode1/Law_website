@@ -12,6 +12,7 @@ const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const myRequestsRoutes = require('./routes/myRequests');
+const scheduleRoutes = require('./routes/schedule');
 
 // Load environment variables
 
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/contact', rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false }));
 app.use('/api/contact', contactRoutes);
 app.use('/api/my-requests', myRequestsRoutes);
+app.use('/api', scheduleRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Health check endpoint

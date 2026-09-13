@@ -427,6 +427,71 @@
                     </form>
                 </div>
             </div>
+            <div class="consultation-panel" id="consultationPanel" hidden>
+                <div class="section-header consultation-header">
+                    <h3>Request a Consultation</h3>
+                    <div class="section-underline"></div>
+                    <p class="section-subtitle">Choose a preferred time and our office will confirm the consultation with you.</p>
+                </div>
+                <div class="consultation-sign-in" id="consultationSignIn" hidden>
+                    <p>Please sign in with Google to request a consultation.</p>
+                    <button class="text-link" id="consultationSignInLink" type="button">Sign in with Google</button>
+                </div>
+                <div class="consultation-authenticated" id="consultationAuthenticated" hidden>
+                    <div class="schedule-list" id="scheduleList" aria-live="polite"></div>
+                    <form class="consultation-form" id="consultationForm" novalidate>
+                        <div class="consultation-form-grid">
+                            <div class="form-group">
+                                <label for="scheduleCaseType">Case Type</label>
+                                <select id="scheduleCaseType" name="caseType" required>
+                                    <option value="">Select Case Type</option>
+                                    <option value="criminal-defense">Criminal Defense</option>
+                                    <option value="white-collar">White-Collar Crimes</option>
+                                    <option value="bail">Bail Matter</option>
+                                    <option value="appeal">Appeal/Revision</option>
+                                    <option value="ndps">NDPS/Drug Offense</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <div class="field-error" data-error-for="caseType"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="preferredDate">Preferred Date</label>
+                                <input id="preferredDate" name="preferredDate" type="date" required>
+                                <div class="field-error" data-error-for="preferredDate"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="preferredTime">Preferred Time</label>
+                                <select id="preferredTime" name="preferredTime" required>
+                                    <option value="">Select Time</option>
+                                    <option value="10:00">10:00 AM</option>
+                                    <option value="11:00">11:00 AM</option>
+                                    <option value="12:00">12:00 PM</option>
+                                    <option value="15:00">3:00 PM</option>
+                                    <option value="16:00">4:00 PM</option>
+                                    <option value="17:00">5:00 PM</option>
+                                </select>
+                                <div class="field-error" data-error-for="preferredTime"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="scheduleMode">Consultation Mode</label>
+                                <select id="scheduleMode" name="mode">
+                                    <option value="in-person">In-person at chamber</option>
+                                    <option value="video-call">Video call</option>
+                                    <option value="phone-call">Phone call</option>
+                                </select>
+                                <div class="field-error" data-error-for="mode"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="scheduleNotes">Notes <span>(optional)</span></label>
+                            <textarea id="scheduleNotes" name="notes" rows="4" maxlength="500" placeholder="Share any helpful context for the consultation"></textarea>
+                            <div class="field-error" data-error-for="notes"></div>
+                        </div>
+                        <button type="submit" class="submit-button" id="scheduleSubmit">Request Consultation</button>
+                        <div class="form-message" id="scheduleMessage" role="status"></div>
+                    </form>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -464,6 +529,7 @@
     <script src="/frontend/src/components/canvas-animation.js"></script>
     <script src="/frontend/src/components/contact-form.js"></script>
     <script src="/frontend/src/components/case-status.js"></script>
+    <script src="/frontend/src/components/schedule.js"></script>
     <script src="/frontend/src/components/testimonials.js"></script>
     <script src="/frontend/src/components/faq.js"></script>
     <script src="/frontend/src/components/floating-actions.js"></script>

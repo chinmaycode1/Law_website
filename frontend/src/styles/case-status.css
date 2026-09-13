@@ -16,3 +16,34 @@
 .nav-auth-button { padding: .5rem .75rem; border: 1px solid var(--gold); border-radius: 3px; background: transparent; color: var(--text-dark); font-size: .78rem; font-weight: 700; }
 .contact-sign-in { min-height: 40px; }
 @media (max-width: 768px) { .nav-auth { display: none; } .case-status-heading { align-items: flex-start; flex-direction: column; } }
+.status-resolved { background: var(--navy-dark); color: var(--white); }
+.update-timeline { position: relative; display: grid; gap: 1rem; margin-top: 1.25rem; padding-left: 1.25rem; }
+.update-timeline::before { position: absolute; top: .3rem; bottom: .3rem; left: .25rem; width: 1px; background: var(--gray-light); content: ''; }
+.timeline-item { position: relative; display: grid; grid-template-columns: .75rem 1fr; gap: .75rem; }
+.timeline-dot { position: relative; z-index: 1; width: .55rem; height: .55rem; margin-top: .35rem; border-radius: 50%; background: var(--gray); }
+.timeline-admin .timeline-dot { background: var(--gold); }
+.timeline-content p { margin: 0; color: var(--text-dark); font-size: .9rem; line-height: 1.5; }
+.timeline-content time { color: var(--text-gray); font-size: .78rem; }
+.consultation-panel { margin-top: 4rem; padding: 3rem; background: var(--off-white); border: 1px solid var(--gray-light); }
+.consultation-header { margin-bottom: 2rem; }
+.consultation-header h3 { font-family: var(--font-serif); font-size: 2rem; }
+.consultation-sign-in { padding: 1.5rem; border-left: 3px solid var(--gold); background: var(--white); text-align: center; }
+.consultation-sign-in p { margin-bottom: .5rem; }
+.text-link { padding: 0; border: 0; background: transparent; color: var(--navy-dark); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.consultation-form { display: grid; gap: 1.5rem; }
+.consultation-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.consultation-form label { margin-bottom: .45rem; color: var(--navy-dark); font-size: .9rem; font-weight: 700; }
+.consultation-form label span { color: var(--text-gray); font-weight: 400; }
+.schedule-list { display: grid; gap: 1rem; margin-bottom: 2rem; }
+.schedule-list-heading { margin: 0; color: var(--navy-dark); font-family: var(--font-serif); font-size: 1.4rem; }
+.schedule-card { padding: 1.25rem 1.5rem; background: var(--white); border: 1px solid var(--gray-light); border-left: 3px solid var(--gold); }
+.schedule-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.schedule-card-heading h4 { margin: 0; font-size: 1.15rem; }
+.schedule-card-details { margin: .5rem 0 0; color: var(--text-gray); font-size: .9rem; }
+.schedule-status { display: inline-flex; align-items: center; gap: .4rem; color: var(--navy-dark); font-size: .78rem; font-weight: 700; text-transform: capitalize; }
+.status-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--gray); }
+.status-pending .status-dot, .status-rescheduled .status-dot { background: var(--gold); }
+.status-confirmed .status-dot { background: var(--navy-dark); }
+.timeline-disclosure { margin-top: 1rem; border-top: 1px solid var(--gray-light); padding-top: .75rem; }
+.timeline-disclosure summary { color: var(--navy-dark); font-size: .82rem; font-weight: 700; cursor: pointer; }
+@media (max-width: 640px) { .consultation-panel { padding: 1.5rem; } .consultation-form-grid { grid-template-columns: 1fr; gap: 1rem; } .schedule-card-heading { align-items: flex-start; flex-direction: column; gap: .5rem; } }

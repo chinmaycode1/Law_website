@@ -1,11 +1,14 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const Contact = require('../models/Contact');
+const Schedule = require('../models/Schedule');
 const adminAuth = require('../middleware/adminAuth');
 
 const router = express.Router();
 const statuses = ['new', 'contacted', 'scheduled', 'resolved'];
-const contactFields = '_id name email phone caseType message status scheduledAt scheduledNote userId createdAt updatedAt';
+const contactFields = '_id name email phone caseType message status scheduledAt scheduledNote updates userId createdAt updatedAt';
+const scheduleStatuses = ['pending', 'confirmed', 'rescheduled', 'completed', 'cancelled'];
+const scheduleFields = '_id userId caseType preferredDate preferredTime mode notes status confirmedAt adminNote updates createdAt updatedAt';
 const adminRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 50,
@@ -25,10 +28,42 @@ function serializeContact(contact) {
         status: contact.status,
         scheduledAt: contact.scheduledAt,
         scheduledNote: contact.scheduledNote,
+        updates: contact.updates,
         userId: contact.userId,
         createdAt: contact.createdAt,
         updatedAt: contact.updatedAt
     };
+}
+
+function serializeSchedule(schedule) {
+    if (!schedule) return schedule;
+    return {
+        _id: schedule._id,
+        userId: schedule.userId,
+        caseType: schedule.caseType,
+        preferredDate: schedule.preferredDate,
+        preferredTime: schedule.preferredTime,
+        mode: schedule.mode,
+        notes: schedule.notes,
+        status: schedule.status,
+        confirmedAt: schedule.confirmedAt,
+        adminNote: schedule.adminNote,
+        updates: schedule.updates,
+        createdAt: schedule.createdAt,
+        updatedAt: schedule.updatedAt
+    };
+}
+
+function formatDateTime(date) {
+    return new Date(date).toLocaleString('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'Asia/Kolkata'
+    });
+}
+
+function caseStatusLabel(status) {
+    return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 router.use(adminRateLimit, adminAuth);
@@ -94,11 +129,65 @@ router.patch('/contacts/:id', async (req, res, next) => {
             contact.scheduledAt = req.body.scheduledAt;
         }
         if (Object.prototype.hasOwnProperty.call(req.body, 'scheduledNote')) contact.scheduledNote = req.body.scheduledNote;
+        const previousStatus = contact.status;
         if (Object.prototype.hasOwnProperty.call(req.body, 'status')) contact.status = req.body.status;
         if (req.body.scheduledAt && !Object.prototype.hasOwnProperty.call(req.body, 'status') && ['new', 'contacted'].includes(contact.status)) contact.status = 'scheduled';
+        if (contact.status !== previousStatus) {
+            contact.updates.push({ message: `Status changed to ${caseStatusLabel(contact.status)}`, by: 'admin' });
+        }
         await contact.save();
 
         return res.json(serializeContact(await Contact.findById(contact._id).select(contactFields).lean()));
+    } catch (error) {
+        return next(error);
+    }
+});
+
+router.get('/schedules', async (req, res, next) => {
+    try {
+        const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
+        const filter = {};
+        if (req.query.status) {
+            if (!scheduleStatuses.includes(req.query.status)) return res.status(400).json({ error: 'Invalid status filter' });
+            filter.status = req.query.status;
+        }
+        const [schedules, total] = await Promise.all([
+            Schedule.find(filter).select(scheduleFields).populate('userId', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+            Schedule.countDocuments(filter)
+        ]);
+        return res.json({ schedules: schedules.map(serializeSchedule), total, page, pages: Math.max(Math.ceil(total / limit), 1) });
+    } catch (error) {
+        return next(error);
+    }
+});
+
+router.patch('/schedules/:id', async (req, res, next) => {
+    try {
+        const allowedActions = ['confirm', 'reschedule', 'complete', 'cancel'];
+        if (!req.body || !allowedActions.includes(req.body.action)) return res.status(400).json({ error: 'Invalid schedule action' });
+        const schedule = await Schedule.findById(req.params.id);
+        if (!schedule) return res.status(404).json({ error: 'Schedule not found' });
+
+        const { action, adminNote } = req.body;
+        if (adminNote !== undefined && (typeof adminNote !== 'string' || adminNote.length > 500)) return res.status(400).json({ error: 'adminNote must be 500 characters or fewer' });
+        if (action === 'reschedule' && (typeof adminNote !== 'string' || !adminNote.trim())) return res.status(400).json({ error: 'adminNote is required when rescheduling' });
+        if (['confirm', 'reschedule'].includes(action)) {
+            if (!req.body.confirmedAt || Number.isNaN(Date.parse(req.body.confirmedAt))) return res.status(400).json({ error: 'confirmedAt must be a valid date' });
+            schedule.confirmedAt = new Date(req.body.confirmedAt);
+        }
+        if (adminNote !== undefined) schedule.adminNote = adminNote;
+
+        const messages = {
+            confirm: `Consultation confirmed for ${formatDateTime(schedule.confirmedAt)}`,
+            reschedule: `Consultation rescheduled to ${formatDateTime(schedule.confirmedAt)}${adminNote ? `: ${adminNote}` : ''}`,
+            complete: 'Consultation completed',
+            cancel: `Consultation cancelled${adminNote ? `: ${adminNote}` : ''}`
+        };
+        schedule.status = { confirm: 'confirmed', reschedule: 'rescheduled', complete: 'completed', cancel: 'cancelled' }[action];
+        schedule.updates.push({ message: messages[action], by: 'admin' });
+        await schedule.save();
+        return res.json(serializeSchedule(await Schedule.findById(schedule._id).select(scheduleFields).populate('userId', 'name email').lean()));
     } catch (error) {
         return next(error);
     }
@@ -119,7 +208,12 @@ router.get('/stats', async (req, res, next) => {
         const grouped = await Contact.aggregate([
             { $group: { _id: '$status', count: { $sum: 1 } } }
         ]);
-        const stats = { new: 0, contacted: 0, scheduled: 0, resolved: 0, total: 0 };
+        const [scheduleCounts, schedulesCount, pendingSchedules] = await Promise.all([
+            Schedule.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+            Schedule.countDocuments(),
+            Schedule.countDocuments({ status: 'pending' })
+        ]);
+        const stats = { new: 0, contacted: 0, scheduled: 0, resolved: 0, total: 0, schedulesCount, pendingSchedules };
         grouped.forEach((item) => {
             if (statuses.includes(item._id)) stats[item._id] = item.count;
         });

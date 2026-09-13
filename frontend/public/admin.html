@@ -45,6 +45,7 @@
             </header>
 
             <div class="stats-grid" id="statsGrid" aria-live="polite"></div>
+            <nav class="view-tabs" id="viewTabs" aria-label="Dashboard sections"></nav>
             <nav class="filter-tabs" id="filterTabs" aria-label="Filter leads"></nav>
             <p class="page-error" id="pageError" role="alert"></p>
             <section class="leads-panel" aria-labelledby="leadsTitle">
@@ -70,6 +71,25 @@
                 <textarea id="scheduledNoteInput" rows="3" maxlength="500" placeholder="Optional location or meeting note"></textarea>
                 <p class="form-error" id="scheduleError" role="alert"></p>
                 <button class="button button-primary" id="saveScheduleButton" type="button">Save schedule</button>
+            </div>
+        </section>
+    </div>
+    <div class="modal-backdrop" id="scheduleModal" hidden>
+        <section class="detail-modal schedule-detail-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleDetailTitle">
+            <button class="modal-close" id="closeScheduleModal" type="button" aria-label="Close consultation details">&times;</button>
+            <p class="eyebrow">Consultation</p>
+            <h2 id="scheduleDetailTitle">Consultation request</h2>
+            <div class="detail-grid" id="scheduleDetailGrid"></div>
+            <div class="message-block"><span>Client notes</span><p id="scheduleDetailNotes"></p></div>
+            <div class="message-block"><span>Admin note</span><p id="scheduleDetailAdminNote"></p></div>
+            <div id="scheduleTimeline"></div>
+            <div class="schedule-action-form" id="scheduleActionForm" hidden>
+                <label for="scheduleConfirmedAt">Agreed date and time</label>
+                <input id="scheduleConfirmedAt" type="datetime-local">
+                <label for="scheduleAdminNote">Admin note</label>
+                <textarea id="scheduleAdminNote" rows="3" maxlength="500" placeholder="Reason or additional detail"></textarea>
+                <p class="form-error" id="scheduleActionError" role="alert"></p>
+                <button class="button button-primary" id="saveScheduleAction" type="button">Save</button>
             </div>
         </section>
     </div>

@@ -9,7 +9,8 @@
         other: 'Other'
     };
     const statuses = ['all', 'new', 'contacted', 'scheduled', 'resolved'];
-    const state = { status: 'all', page: 1, limit: 20 };
+    const scheduleStatuses = ['all', 'pending', 'confirmed', 'rescheduled', 'completed', 'cancelled'];
+    const state = { view: 'contacts', status: 'all', page: 1, scheduleStatus: 'all', schedulePage: 1, limit: 20 };
     const elements = {
         loginPanel: document.getElementById('loginPanel'),
         loginForm: document.getElementById('loginForm'),
@@ -18,6 +19,7 @@
         dashboard: document.getElementById('dashboard'),
         logoutButton: document.getElementById('logoutButton'),
         statsGrid: document.getElementById('statsGrid'),
+        viewTabs: document.getElementById('viewTabs'),
         filterTabs: document.getElementById('filterTabs'),
         pageError: document.getElementById('pageError'),
         leadsContainer: document.getElementById('leadsContainer'),
@@ -35,8 +37,22 @@
         toast: document.getElementById('toast'),
         toastIcon: document.getElementById('toastIcon'),
         toastMessage: document.getElementById('toastMessage')
+        ,scheduleModal: document.getElementById('scheduleModal')
+        ,closeScheduleModal: document.getElementById('closeScheduleModal')
+        ,scheduleDetailTitle: document.getElementById('scheduleDetailTitle')
+        ,scheduleDetailGrid: document.getElementById('scheduleDetailGrid')
+        ,scheduleDetailNotes: document.getElementById('scheduleDetailNotes')
+        ,scheduleDetailAdminNote: document.getElementById('scheduleDetailAdminNote')
+        ,scheduleTimeline: document.getElementById('scheduleTimeline')
+        ,scheduleActionForm: document.getElementById('scheduleActionForm')
+        ,scheduleConfirmedAt: document.getElementById('scheduleConfirmedAt')
+        ,scheduleAdminNote: document.getElementById('scheduleAdminNote')
+        ,scheduleActionError: document.getElementById('scheduleActionError')
+        ,saveScheduleAction: document.getElementById('saveScheduleAction')
     };
     let detailContactId = null;
+    let detailScheduleId = null;
+    let scheduleAction = null;
 
     function getKey() {
         return sessionStorage.getItem('adminKey');
@@ -92,12 +108,32 @@
 
     function renderStats(stats) {
         elements.statsGrid.replaceChildren();
-        [['new', 'New'], ['contacted', 'Contacted'], ['scheduled', 'Scheduled'], ['resolved', 'Resolved'], ['total', 'Total']].forEach(([key, label]) => {
+        [['new', 'New'], ['contacted', 'Contacted'], ['scheduled', 'Scheduled'], ['resolved', 'Resolved'], ['total', 'Total'], ['pendingSchedules', 'Pending Consultations'], ['schedulesCount', 'Total Consultations']].forEach(([key, label]) => {
             const card = document.createElement('article');
             card.className = 'stat-card';
             addText(card, label, 'stat-label');
             addText(card, stats[key] || 0, 'stat-value');
             elements.statsGrid.appendChild(card);
+        });
+    }
+
+    function renderViewTabs() {
+        elements.viewTabs.replaceChildren();
+        [['contacts', 'Contact Requests'], ['schedules', 'Consultations']].forEach(([view, label]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `view-tab${state.view === view ? ' active' : ''}`;
+            button.setAttribute('aria-pressed', String(state.view === view));
+            addText(button, label);
+            button.addEventListener('click', async () => {
+                if (state.view === view) return;
+                state.view = view;
+                state.page = 1;
+                state.schedulePage = 1;
+                renderViewTabs();
+                await loadCurrentView();
+            });
+            elements.viewTabs.appendChild(button);
         });
     }
 
@@ -120,8 +156,25 @@
         });
     }
 
+    function renderScheduleTabs() {
+        elements.filterTabs.replaceChildren();
+        scheduleStatuses.forEach((status) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `filter-tab${state.scheduleStatus === status ? ' active' : ''}`;
+            button.setAttribute('aria-pressed', String(state.scheduleStatus === status));
+            addText(button, status === 'all' ? 'All' : status[0].toUpperCase() + status.slice(1));
+            button.addEventListener('click', () => { state.scheduleStatus = status; state.schedulePage = 1; renderScheduleTabs(); loadSchedules(); });
+            elements.filterTabs.appendChild(button);
+        });
+    }
+
     function formatDate(value) {
         return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value));
+    }
+
+    function formatDateOnly(value) {
+        return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
     }
 
     function statusSelect(contact) {
@@ -217,11 +270,12 @@
         const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; next.disabled = data.page >= data.pages; next.addEventListener('click', () => changePage(data.page + 1)); elements.pagination.appendChild(next);
     }
 
-    async function changePage(page) { state.page = page; await loadLeads(); }
+    async function changePage(page) { if (state.view === 'schedules') { state.schedulePage = page; await loadSchedules(); } else { state.page = page; await loadLeads(); } }
 
     async function loadStats() {
         const stats = await request('/stats');
         renderStats(stats);
+        renderViewTabs();
         renderTabs(stats);
     }
 
@@ -230,6 +284,141 @@
         if (state.status !== 'all') query.set('status', state.status);
         const data = await request(`/contacts?${query.toString()}`);
         renderLeads(data);
+    }
+
+    function renderScheduleTimeline(updates) {
+        elements.scheduleTimeline.replaceChildren();
+        if (!Array.isArray(updates) || !updates.length) return;
+        const heading = document.createElement('span');
+        heading.className = 'detail-label';
+        heading.textContent = 'Updates';
+        const timeline = document.createElement('div');
+        timeline.className = 'admin-timeline';
+        updates.forEach((update) => {
+            const item = document.createElement('div');
+            item.className = 'admin-timeline-item';
+            const dot = document.createElement('span');
+            dot.className = `admin-timeline-dot ${update.by === 'admin' ? 'admin' : 'system'}`;
+            const content = document.createElement('div');
+            addText(content, update.message, 'admin-timeline-message');
+            addText(content, formatDate(update.at), 'admin-timeline-date');
+            item.append(dot, content);
+            timeline.appendChild(item);
+        });
+        elements.scheduleTimeline.append(heading, timeline);
+    }
+
+    function scheduleActionButton(label, iconId, action) {
+        return actionButton(label, iconId, action);
+    }
+
+    function renderSchedules(data) {
+        elements.leadsContainer.replaceChildren();
+        elements.resultCount.textContent = `${data.total} ${data.total === 1 ? 'consultation' : 'consultations'}`;
+        renderScheduleTabs();
+        if (!data.schedules.length) {
+            const empty = document.createElement('div');
+            empty.className = 'empty-state';
+            empty.appendChild(icon('inbox'));
+            addText(empty, 'No consultations yet', 'empty-title');
+            addText(empty, 'Consultation requests will appear here.', 'empty-copy');
+            elements.leadsContainer.appendChild(empty);
+            renderPagination(data);
+            return;
+        }
+        const table = document.createElement('table');
+        table.className = 'leads-table';
+        const head = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Name', 'Case Type', 'Preferred', 'Status', 'Actions'].forEach((label) => { const header = document.createElement('th'); header.className = 'table-heading'; header.scope = 'col'; header.textContent = label; headerRow.appendChild(header); });
+        head.appendChild(headerRow);
+        const body = document.createElement('tbody');
+        data.schedules.forEach((schedule) => {
+            const row = document.createElement('tr');
+            const user = schedule.userId || {};
+            const name = document.createElement('td'); name.dataset.label = 'Name'; addText(name, user.name || 'Unknown client', 'lead-name'); addText(name, user.email || '', 'schedule-client-email');
+            const caseType = document.createElement('td'); caseType.dataset.label = 'Case Type'; addText(caseType, caseLabels[schedule.caseType] || schedule.caseType);
+            const preferred = document.createElement('td'); preferred.dataset.label = 'Preferred'; addText(preferred, `${formatDateOnly(schedule.preferredDate)} at ${schedule.preferredTime}`); addText(preferred, schedule.mode, 'schedule-mode');
+            const status = document.createElement('td'); status.dataset.label = 'Status'; addText(status, schedule.status, `schedule-status status-${schedule.status}`);
+            const actions = document.createElement('td'); actions.dataset.label = 'Actions'; actions.className = 'actions-cell';
+            actions.appendChild(scheduleActionButton('View consultation', 'eye', () => openScheduleDetails(schedule, false)));
+            if (['pending', 'rescheduled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Confirm consultation', 'check', () => openScheduleDetails(schedule, true, 'confirm')));
+            if (['pending', 'confirmed', 'rescheduled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Reschedule consultation', 'alert', () => openScheduleDetails(schedule, true, 'reschedule')));
+            if (schedule.status === 'confirmed') actions.appendChild(scheduleActionButton('Complete consultation', 'check', async () => { try { await updateSchedule(schedule._id, 'complete'); } catch (error) { showPageError(error); } }));
+            if (!['completed', 'cancelled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Cancel consultation', 'trash', () => cancelSchedule(schedule._id)));
+            [name, caseType, preferred, status, actions].forEach((cell) => row.appendChild(cell));
+            body.appendChild(row);
+        });
+        table.appendChild(body);
+        elements.leadsContainer.appendChild(table);
+        renderPagination(data);
+    }
+
+    async function loadSchedules() {
+        const query = new URLSearchParams({ page: state.schedulePage, limit: state.limit });
+        if (state.scheduleStatus !== 'all') query.set('status', state.scheduleStatus);
+        const data = await request(`/schedules?${query.toString()}`);
+        renderSchedules(data);
+    }
+
+    async function loadCurrentView() {
+        clearError();
+        try {
+            if (state.view === 'schedules') await loadSchedules();
+            else { await loadLeads(); renderTabs(await request('/stats')); }
+        } catch (error) { showPageError(error); }
+    }
+
+    function renderScheduleDetail(schedule) {
+        const user = schedule.userId || {};
+        elements.scheduleDetailTitle.textContent = user.name || 'Consultation request';
+        elements.scheduleDetailGrid.replaceChildren();
+        [['Name', user.name || 'Unknown client'], ['Email', user.email || ''], ['Case type', caseLabels[schedule.caseType] || schedule.caseType], ['Preferred', `${formatDateOnly(schedule.preferredDate)} at ${schedule.preferredTime}`], ['Mode', schedule.mode], ['Status', schedule.status], ['Received', formatDate(schedule.createdAt)]].forEach(([label, value]) => {
+            const item = document.createElement('div'); item.className = 'detail-item'; addText(item, label, 'detail-label'); addText(item, value, 'detail-value'); elements.scheduleDetailGrid.appendChild(item);
+        });
+        elements.scheduleDetailNotes.textContent = schedule.notes || 'No notes provided.';
+        elements.scheduleDetailAdminNote.textContent = schedule.adminNote || 'No admin note.';
+        renderScheduleTimeline(schedule.updates);
+    }
+
+    function openScheduleDetails(schedule, actionMode, action = null) {
+        detailScheduleId = schedule._id;
+        scheduleAction = action;
+        renderScheduleDetail(schedule);
+        elements.scheduleActionForm.hidden = !actionMode;
+        elements.scheduleActionError.textContent = '';
+        elements.scheduleAdminNote.value = action === 'reschedule' ? (schedule.adminNote || '') : '';
+        elements.scheduleConfirmedAt.value = schedule.confirmedAt ? toLocalInputValue(schedule.confirmedAt) : toLocalInputValue(`${schedule.preferredDate.slice(0, 10)}T${schedule.preferredTime}:00`);
+        elements.saveScheduleAction.textContent = action === 'reschedule' ? 'Save Reschedule' : 'Confirm Consultation';
+        elements.scheduleModal.hidden = false;
+    }
+
+    async function saveScheduleAction() {
+        elements.scheduleActionError.textContent = '';
+        if (!elements.scheduleConfirmedAt.value) { elements.scheduleActionError.textContent = 'Choose an agreed date and time.'; return; }
+        if (scheduleAction === 'reschedule' && !elements.scheduleAdminNote.value.trim()) { elements.scheduleActionError.textContent = 'Add a reason for rescheduling.'; return; }
+        try {
+            await updateSchedule(detailScheduleId, scheduleAction, new Date(elements.scheduleConfirmedAt.value).toISOString(), elements.scheduleAdminNote.value.trim());
+            elements.scheduleModal.hidden = true;
+        } catch (error) {
+            elements.scheduleActionError.textContent = 'The consultation could not be updated. Please try again.';
+        }
+    }
+
+    async function updateSchedule(id, action, confirmedAt, adminNote) {
+        const body = { action };
+        if (confirmedAt) body.confirmedAt = confirmedAt;
+        if (adminNote) body.adminNote = adminNote;
+        await request(`/schedules/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        showToast('Consultation updated.');
+        await loadStats();
+        if (state.view === 'schedules') await loadSchedules();
+    }
+
+    async function cancelSchedule(id) {
+        if (!window.confirm('Cancel this consultation?')) return;
+        const note = window.prompt('Optional cancellation note:') || '';
+        try { await updateSchedule(id, 'cancel', null, note.trim()); } catch (error) { showPageError(error); }
     }
 
     async function loadDashboard() {
@@ -295,5 +484,8 @@
     elements.closeModal.addEventListener('click', () => { elements.detailModal.hidden = true; });
     elements.saveScheduleButton.addEventListener('click', saveSchedule);
     elements.detailModal.addEventListener('click', (event) => { if (event.target === elements.detailModal) elements.detailModal.hidden = true; });
+    elements.closeScheduleModal.addEventListener('click', () => { elements.scheduleModal.hidden = true; });
+    elements.saveScheduleAction.addEventListener('click', saveScheduleAction);
+    elements.scheduleModal.addEventListener('click', (event) => { if (event.target === elements.scheduleModal) elements.scheduleModal.hidden = true; });
     if (getKey()) showDashboard();
 })();

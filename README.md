@@ -1,27 +1,35 @@
 # Advocate Sunil Sawargaonkar - Law Website
 
-## Admin Dashboard
-
-The private lead dashboard is available at `/admin.html`. Set `ADMIN_KEY` in `backend/.env` before starting the backend. Generate a strong key with:
-
-```powershell
-node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
-```
-
-The dashboard sends this key in the `x-admin-key` header and stores it only in `sessionStorage` for the current browser session. Public visitors can browse freely, while Google sign-in is required only to submit a contact request and view its case status.
-
 Premium law firm website featuring full-screen Apple-style scroll-driven canvas animation with 300 optimized frames.
 
-## 🎯 Features
+## Features
 
-✅ **Full-Screen Canvas Animation** - 300-frame scroll-driven animation (FIXED: now fills entire viewport)
-✅ **Premium Design** - White and gold color theme with glassmorphism effects
-✅ **Fully Responsive** - Perfect on desktop, tablet, and mobile
-✅ **Smooth 60fps Performance** - RequestAnimationFrame optimization
-✅ **Contact Form API** - Node.js/Express backend for form submissions
-✅ **Complete Sections** - About, Practice Areas, Services, Contact, Footer
+- Google sign-in for secure client identity and request ownership.
+- Contact requests with case status tracking and a shared update timeline.
+- Consultation scheduling with preferred date, time, mode, notes, and status updates.
+- Private admin dashboard for managing contact requests and consultations.
+- Consultation confirmation, rescheduling, completion, cancellation, and admin notes.
+- Responsive white, gold, and navy law-firm design with canvas animation.
 
-## 📁 Project Structure
+## Dashboard Access
+
+The private dashboard is available at `/admin.html`. Set `ADMIN_KEY` in `backend/.env` before starting the backend. The dashboard sends this key in the `x-admin-key` header and stores it only in `sessionStorage` for the current browser session.
+
+## User Flow
+
+1. Browse the website freely without signing in.
+2. Sign in with Google to send a contact request or book a consultation.
+3. Track contact and consultation status, scheduled details, and timeline updates in the My Requests area.
+
+## Admin Flow
+
+Open `/admin.html`, enter the configured `ADMIN_KEY`, and manage both contact requests and consultations from their respective dashboard tabs. Admins can update statuses, confirm or reschedule consultations, add notes, complete consultations, and cancel requests.
+
+## Environment Variables
+
+No new environment variables are required for consultation scheduling. Use the existing variables documented in `backend/.env.example`.
+
+## Project Structure
 
 ```
 LAW_WEBSITE/
@@ -47,13 +55,13 @@ LAW_WEBSITE/
 │   └── .env.example                 # Environment variables template
 │
 └── Assets/
-    └── logo-frames-gold-optimized/  # 300 JPG frames (001-300)
-        ├── ezgif-frame-001.jpg
-        ├── ezgif-frame-002.jpg
-        └── ... (300 frames total)
+   └── logo-frames-gold-optimized/  # Animation and brand assets
+      ├── ezgif-frame-001.jpg
+      ├── ezgif-frame-002.jpg
+      └── ... (300 frames total)
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Frontend Setup
 
@@ -108,7 +116,7 @@ LAW_WEBSITE/
 
    The health endpoint is `http://localhost:3000/api/health`. It reports the Mongoose connection state. For local development with the separate Python frontend server, keep `FRONTEND_URL=http://localhost:8000,http://localhost:3000`.
 
-## 🎬 How the Canvas Animation Works
+## How the Canvas Animation Works
 
 ### THE FIX - Full Viewport Canvas
 
@@ -156,7 +164,7 @@ const scrollProgress = (scrollY - scrollStart) / scrollRange;
 const frameIndex = Math.floor(progress * 299);
 ```
 
-## 🎨 Design System
+## Design System
 
 ### Colors
 - **Gold:** `#d4af37` (Primary accent)
@@ -177,7 +185,7 @@ const frameIndex = Math.floor(progress * 299);
 - Gold gradient accents
 - Subtle shadows
 
-## 📱 Responsive Breakpoints
+## Responsive Breakpoints
 
 - **Desktop:** 1024px+
 - **Tablet:** 768px - 1023px
@@ -189,7 +197,7 @@ Canvas scroll heights adjust automatically:
 - Tablet: 300vh
 - Mobile: 250vh
 
-## 🔧 Customization
+## Customization
 
 ### Update Contact Information
 
@@ -219,7 +227,7 @@ Edit ` frontend/src/styles/main.css` (lines 11-22):
 }
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Canvas Not Full Screen?
 - Check that `canvas-animation.css` has `width: 100vw; height: 100vh;`
@@ -242,26 +250,26 @@ Edit ` frontend/src/styles/main.css` (lines 11-22):
 - JavaScript smooth scroll is implemented as fallback
 - Check for conflicting scroll libraries
 
-## 📄 Browser Support
+## Browser Support
 
-- ✅ Chrome/Edge (Latest)
-- ✅ Firefox (Latest)
-- ✅ Safari (Latest)
-- ✅ Mobile Safari (iOS 12+)
-- ✅ Chrome Mobile (Android)
+- Chrome/Edge (Latest)
+- Firefox (Latest)
+- Safari (Latest)
+- Mobile Safari (iOS 12+)
+- Chrome Mobile (Android)
 
-## 🚀 Performance
+## Performance
 
 - **Loading:** Progress bar shows frame preload status
 - **Scroll:** 60fps smooth animation using requestAnimationFrame
 - **Images:** 300 optimized JPG frames for fast loading
 - **Mobile:** Adjusted scroll ranges for better performance
 
-## 📝 License
+## License
 
 © 2026 Advocate Sunil Sharadrao Sawargaonkar. All rights reserved.
 
-## 🤝 Support
+## Support
 
 For technical issues or customization requests, please contact:
 - Email: [your-email@example.com]
