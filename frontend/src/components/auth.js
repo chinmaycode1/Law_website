@@ -2,6 +2,7 @@
     const listeners = new Set();
     const state = { user: null };
     const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
+    let googleClientId = '';
 
     function notify() { listeners.forEach((listener) => listener(state.user)); }
     function isSignedIn() { return Boolean(state.user); }
@@ -50,10 +51,32 @@
     }
 
     function initializeGoogle() {
-        const clientId = document.body.dataset.googleClientId;
-        if (!clientId || clientId.startsWith('YOUR_') || !window.google?.accounts?.id) return;
-        window.google.accounts.id.initialize({ client_id: clientId, callback: (response) => handleCredentialResponse(response).catch(() => notify()) });
+        if (!googleClientId || !window.google?.accounts?.id) return;
+        window.google.accounts.id.initialize({ client_id: googleClientId, callback: (response) => handleCredentialResponse(response).catch((error) => showAuthError(error.message)) });
         renderAuth(state.user);
+    }
+
+    function showAuthError(message) {
+        const containers = ['googleSignIn', 'contactGoogleSignIn'];
+        containers.forEach((id) => {
+            const container = document.getElementById(id);
+            if (!container || state.user) return;
+            const error = document.createElement('p');
+            error.className = 'auth-error';
+            error.textContent = message || 'Google sign-in failed. Please try again.';
+            container.appendChild(error);
+        });
+    }
+
+    async function loadGoogleConfig() {
+        try {
+            const response = await fetch(`${apiBase}/auth/config`, { credentials: 'include' });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message || 'Google sign-in is not configured.');
+            googleClientId = body.googleClientId;
+        } catch (error) {
+            showAuthError(error.message);
+        }
     }
 
     async function restoreSession() {
@@ -68,5 +91,5 @@
     }
 
     window.lawAuth = { get user() { return state.user; }, isSignedIn, focusSignIn, subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); } };
-    document.addEventListener('DOMContentLoaded', () => { restoreSession(); window.setTimeout(initializeGoogle, 250); });
+    document.addEventListener('DOMContentLoaded', async () => { await loadGoogleConfig(); restoreSession(); window.setTimeout(initializeGoogle, 250); });
 })();

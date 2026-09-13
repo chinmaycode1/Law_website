@@ -20,13 +20,28 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const frontendPath = path.join(__dirname, '..', 'frontend', 'public');
 const projectPath = path.join(__dirname, '..');
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:8000,http://localhost:3000')
-    .split(',').map((origin) => origin.trim()).filter(Boolean);
+const configuredOrigins = (process.env.FRONTEND_URL || '').split(',').map((origin) => origin.trim()).filter(Boolean);
+const allowedOrigins = new Set(configuredOrigins);
+if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.add('http://localhost:3000');
+}
 
-app.use(helmet());
+const contentSecurityPolicy = helmet.contentSecurityPolicy.getDefaultDirectives();
+function allowContentSource(directive, source) {
+    if (!contentSecurityPolicy[directive]) contentSecurityPolicy[directive] = ["'self'"];
+    contentSecurityPolicy[directive].push(source);
+}
+allowContentSource('script-src', 'https://accounts.google.com');
+allowContentSource('frame-src', 'https://accounts.google.com');
+allowContentSource('connect-src', 'https://accounts.google.com');
+allowContentSource('style-src', 'https://fonts.googleapis.com');
+allowContentSource('font-src', 'https://fonts.gstatic.com');
+allowContentSource('img-src', 'https://*.googleusercontent.com');
+
+app.use(helmet({ contentSecurityPolicy: { directives: contentSecurityPolicy } }));
 app.use(morgan('dev'));
 app.use(cors({ origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by CORS'));
 }, credentials: true }));
 app.use(express.json({ limit: '20kb' }));

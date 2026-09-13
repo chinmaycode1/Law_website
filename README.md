@@ -71,17 +71,13 @@ LAW_WEBSITE/
    Double-click to open in browser
    ```
 
-2. **Or use a local server (recommended):**
+2. **Start the complete site:**
    ```bash
-   # Using Python
-   cd frontend/public
-   python -m http.server 8000
-   
-   # Using Node.js
-   npx http-server frontend/public -p 8000
+   cd backend
+   npm start
    ```
 
-   Then open: `http://localhost:8000`
+   The frontend and API are served together at `http://localhost:3000`.
 
 ### Backend Setup (MongoDB + Contact Form)
 
@@ -114,7 +110,7 @@ LAW_WEBSITE/
 
    The complete site and API run on: `http://localhost:3000`
 
-   The health endpoint is `http://localhost:3000/api/health`. It reports the Mongoose connection state. For local development with the separate Python frontend server, keep `FRONTEND_URL=http://localhost:8000,http://localhost:3000`.
+   The health endpoint is `http://localhost:3000/api/health`. It reports the Mongoose connection state.
 
 ## How the Canvas Animation Works
 

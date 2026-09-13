@@ -127,6 +127,22 @@ a {
     border: 0;
 }
 
+/* SVG icons - gold line style */
+.icon {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.practice-icon, .highlight-icon, .info-icon {
+    color: var(--gold);
+}
+
 /* Smooth Transitions */
 * {
     -webkit-font-smoothing: antialiased;
