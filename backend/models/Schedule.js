@@ -10,6 +10,15 @@ const updateSchema = new mongoose.Schema({
     by: { type: String, enum: ['admin', 'system'], required: true }
 }, { _id: false });
 
+const paymentSchema = new mongoose.Schema({
+    orderId: { type: String, index: true },
+    paymentId: { type: String, sparse: true, index: true },
+    amount: { type: Number, default: 300000 },
+    method: { type: String },
+    status: { type: String, enum: ['created', 'paid', 'refunded'], default: 'created' },
+    paidAt: { type: Date }
+}, { _id: false });
+
 const scheduleSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     caseType: { type: String, required: true, enum: caseTypes },
@@ -20,6 +29,7 @@ const scheduleSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'confirmed', 'rescheduled', 'completed', 'cancelled'], default: 'pending' },
     confirmedAt: { type: Date },
     adminNote: { type: String, trim: true, maxlength: 500 },
+    payment: { type: paymentSchema, default: () => ({}) },
     updates: { type: [updateSchema], default: [] }
 }, { timestamps: true });
 

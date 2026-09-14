@@ -42,7 +42,13 @@ html, body { overflow-x: hidden; }
 .schedule-list-heading { margin: 0; color: var(--navy-dark); font-family: var(--font-serif); font-size: 1.4rem; }
 .schedule-card { padding: 1.25rem 1.5rem; background: var(--white); border: 1px solid var(--gray-light); border-left: 3px solid var(--gold); }
 .schedule-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.schedule-card-badges { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .55rem; }
 .schedule-card-heading h4 { margin: 0; font-size: 1.15rem; }
+.payment-tag { display: inline-flex; align-items: center; gap: .25rem; padding: .22rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+.payment-tag .icon { width: .8rem; height: .8rem; fill: none; stroke: currentColor; stroke-width: 2; }
+.payment-paid { background: var(--gold-light); color: var(--navy-dark); }
+.payment-refunded { background: var(--gray-light); color: var(--text-gray); }
+.payment-note { margin: -.5rem 0 0; color: var(--text-gray); font-size: .78rem; }
 .schedule-card-details { margin: .5rem 0 0; color: var(--text-gray); font-size: .9rem; }
 .schedule-status { display: inline-flex; align-items: center; gap: .4rem; color: var(--navy-dark); font-size: .78rem; font-weight: 700; text-transform: capitalize; }
 .status-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--gray); }
@@ -50,4 +56,4 @@ html, body { overflow-x: hidden; }
 .status-confirmed .status-dot { background: var(--navy-dark); }
 .timeline-disclosure { margin-top: 1rem; border-top: 1px solid var(--gray-light); padding-top: .75rem; }
 .timeline-disclosure summary { color: var(--navy-dark); font-size: .82rem; font-weight: 700; cursor: pointer; }
-@media (max-width: 640px) { .consultation-panel { padding: 1.5rem; } .consultation-form-grid { grid-template-columns: 1fr; gap: 1rem; } .schedule-card-heading { align-items: flex-start; flex-direction: column; gap: .5rem; } }
+@media (max-width: 640px) { .consultation-panel { padding: 1.5rem; } .consultation-form-grid { grid-template-columns: 1fr; gap: 1rem; } .schedule-card-heading { align-items: flex-start; flex-direction: column; gap: .5rem; } .schedule-card-badges { justify-content: flex-start; } }

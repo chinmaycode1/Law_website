@@ -42,6 +42,7 @@
     <link rel="stylesheet" href="/frontend/src/styles/responsive.css">
     <link rel="stylesheet" href="/frontend/src/styles/floating-actions.css">
     <link rel="stylesheet" href="/frontend/src/styles/case-status.css">
+    <link rel="stylesheet" href="/frontend/src/styles/cookie-consent.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -487,7 +488,8 @@
                             <textarea id="scheduleNotes" name="notes" rows="4" maxlength="500" placeholder="Share any helpful context for the consultation"></textarea>
                             <div class="field-error" data-error-for="notes"></div>
                         </div>
-                        <button type="submit" class="submit-button" id="scheduleSubmit">Request Consultation</button>
+                        <p class="payment-note">A one-time consultation fee of ₹3,000 applies. Secure payment via Razorpay (UPI, cards, netbanking). Request is sent only after payment.</p>
+                        <button type="submit" class="submit-button" id="scheduleSubmit">Pay ₹3,000 &amp; Request Consultation</button>
                         <div class="form-message" id="scheduleMessage" role="status"></div>
                     </form>
                 </div>
@@ -533,5 +535,7 @@
     <script src="/frontend/src/components/testimonials.js"></script>
     <script src="/frontend/src/components/faq.js"></script>
     <script src="/frontend/src/components/floating-actions.js"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+    <script src="/frontend/src/components/cookie-consent.js"></script>
 </body>
 </html>

@@ -82,6 +82,9 @@ h2 { margin: 0; font-size: 1.65rem; }
 .toast.visible { transform: translateY(0); opacity: 1; }
 .toast.error { border-left-color: var(--danger); }
 .schedule-client-email, .schedule-mode { display: block; margin-top: .25rem; color: var(--muted); font-size: .75rem; }
+.payment-tag { display: inline-flex; align-items: center; padding: .22rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+.payment-paid { background: #f0d78c; color: var(--ink); }
+.payment-refunded { background: var(--line); color: var(--muted); }
 .schedule-status { color: var(--navy); font-weight: 700; text-transform: capitalize; }
 .status-pending, .status-rescheduled { color: var(--gold-dark); }
 .status-confirmed { color: var(--navy); }

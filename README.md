@@ -9,6 +9,8 @@ Premium law firm website featuring full-screen Apple-style scroll-driven canvas 
 - Consultation scheduling with preferred date, time, mode, notes, and status updates.
 - Private admin dashboard for managing contact requests and consultations.
 - Consultation confirmation, rescheduling, completion, cancellation, and admin notes.
+- Razorpay consultation payments with payment verification and admin refunds.
+- First-visit cookie consent with an essential-session explanation.
 - Responsive white, gold, and navy law-firm design with canvas animation.
 
 ## Dashboard Access
@@ -27,7 +29,28 @@ Open `/admin.html`, enter the configured `ADMIN_KEY`, and manage both contact re
 
 ## Environment Variables
 
-No new environment variables are required for consultation scheduling. Use the existing variables documented in `backend/.env.example`.
+Copy `backend/.env.example` to `backend/.env` and set the values below:
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGO_URI` | MongoDB connection string |
+| `GOOGLE_CLIENT_ID` | Google Identity Services client ID |
+| `SESSION_JWT_SECRET` | Session JWT signing secret |
+| `ADMIN_KEY` | Admin dashboard authentication key |
+| `RAZORPAY_KEY_ID` | Razorpay public key ID |
+| `RAZORPAY_KEY_SECRET` | Razorpay server-side secret |
+| `RAZORPAY_WEBHOOK_SECRET` | Optional Razorpay webhook signing secret |
+
+Other email, port, and CORS variables are documented inline in `backend/.env.example`.
+
+## Payments (Razorpay)
+
+1. Create an account at [dashboard.razorpay.com](https://dashboard.razorpay.com/).
+2. Complete KYC with your PAN and bank details.
+3. Create and copy test API keys, then put `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `backend/.env`. Configure `RAZORPAY_WEBHOOK_SECRET` when adding a webhook in the dashboard.
+4. Use Razorpay test mode while developing. Activate live mode later after verification and replace the keys with live credentials.
+
+The consultation fee is ₹3,000. For checkout testing, use card `4111 1111 1111 1111`, any future expiry date, any CVV, and any name. The application creates a consultation request only after payment verification. Admin cancellation of a paid consultation calls Razorpay's refund API and marks the request as refunded; a payment that cannot be verified after money is deducted is expected to auto-refund in 5–7 days according to the checkout message.
 
 ## Project Structure
 

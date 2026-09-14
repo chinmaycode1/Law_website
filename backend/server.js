@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const myRequestsRoutes = require('./routes/myRequests');
 const scheduleRoutes = require('./routes/schedule');
+const paymentRoutes = require('./routes/payment');
 
 // Load environment variables
 
@@ -32,8 +33,10 @@ function allowContentSource(directive, source) {
     contentSecurityPolicy[directive].push(source);
 }
 allowContentSource('script-src', 'https://accounts.google.com');
+allowContentSource('script-src', 'https://checkout.razorpay.com');
 allowContentSource('frame-src', 'https://accounts.google.com');
 allowContentSource('connect-src', 'https://accounts.google.com');
+allowContentSource('connect-src', 'https://api.razorpay.com');
 allowContentSource('style-src', 'https://fonts.googleapis.com');
 allowContentSource('font-src', 'https://fonts.gstatic.com');
 allowContentSource('img-src', 'https://*.googleusercontent.com');
@@ -47,6 +50,7 @@ app.use(cors({ origin: (origin, callback) => {
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by CORS'));
 }, credentials: true }));
+app.use('/api/payment', paymentRoutes);
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: true, limit: '20kb' }));
 app.use(cookieParser());

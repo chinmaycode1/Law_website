@@ -3,12 +3,13 @@ const rateLimit = require('express-rate-limit');
 const Contact = require('../models/Contact');
 const Schedule = require('../models/Schedule');
 const adminAuth = require('../middleware/adminAuth');
+const { isConfigured, razorpay } = require('../config/razorpay');
 
 const router = express.Router();
 const statuses = ['new', 'contacted', 'scheduled', 'resolved'];
 const contactFields = '_id name email phone caseType message status scheduledAt scheduledNote updates userId createdAt updatedAt';
 const scheduleStatuses = ['pending', 'confirmed', 'rescheduled', 'completed', 'cancelled'];
-const scheduleFields = '_id userId caseType preferredDate preferredTime mode notes status confirmedAt adminNote updates createdAt updatedAt';
+const scheduleFields = '_id userId caseType preferredDate preferredTime mode notes status confirmedAt adminNote payment updates createdAt updatedAt';
 const adminRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 50,
@@ -48,6 +49,14 @@ function serializeSchedule(schedule) {
         status: schedule.status,
         confirmedAt: schedule.confirmedAt,
         adminNote: schedule.adminNote,
+        payment: schedule.payment ? {
+            status: schedule.payment.status,
+            paymentId: schedule.payment.paymentId,
+            method: schedule.payment.method,
+            amount: schedule.payment.amount,
+            paidAt: schedule.payment.paidAt,
+            orderId: schedule.payment.orderId
+        } : undefined,
         updates: schedule.updates,
         createdAt: schedule.createdAt,
         updatedAt: schedule.updatedAt
@@ -164,7 +173,7 @@ router.get('/schedules', async (req, res, next) => {
 
 router.patch('/schedules/:id', async (req, res, next) => {
     try {
-        const allowedActions = ['confirm', 'reschedule', 'complete', 'cancel'];
+        const allowedActions = ['confirm', 'reschedule', 'complete', 'cancel', 'refund'];
         if (!req.body || !allowedActions.includes(req.body.action)) return res.status(400).json({ error: 'Invalid schedule action' });
         const schedule = await Schedule.findById(req.params.id);
         if (!schedule) return res.status(404).json({ error: 'Schedule not found' });
@@ -177,6 +186,18 @@ router.patch('/schedules/:id', async (req, res, next) => {
             schedule.confirmedAt = new Date(req.body.confirmedAt);
         }
         if (adminNote !== undefined) schedule.adminNote = adminNote;
+
+        if (action === 'refund') {
+            if (!isConfigured || !schedule.payment || schedule.payment.status !== 'paid' || !schedule.payment.paymentId) {
+                return res.status(400).json({ error: 'Only paid consultations can be refunded' });
+            }
+            await razorpay.payments.refund(schedule.payment.paymentId);
+            schedule.payment.status = 'refunded';
+            schedule.status = 'cancelled';
+            schedule.updates.push({ message: 'Consultation cancelled and payment refunded', by: 'admin' });
+            await schedule.save();
+            return res.json(serializeSchedule(await Schedule.findById(schedule._id).select(scheduleFields).populate('userId', 'name email').lean()));
+        }
 
         const messages = {
             confirm: `Consultation confirmed for ${formatDateTime(schedule.confirmedAt)}`,

@@ -1,0 +1,73 @@
+.cookie-consent-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: rgba(10, 22, 40, .55);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.cookie-consent-card {
+    width: min(480px, 100%);
+    padding: 2.25rem;
+    background: var(--white);
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(10, 22, 40, .22);
+}
+
+.cookie-consent-card h2 {
+    margin: 0 0 .8rem;
+    color: var(--navy-dark);
+    font-family: var(--font-serif);
+    font-size: 1.8rem;
+}
+
+.cookie-consent-card p {
+    margin: 0 0 1rem;
+    color: var(--text-gray);
+    font-size: .9rem;
+    line-height: 1.7;
+}
+
+.cookie-consent-card > a {
+    color: var(--navy-dark);
+    font-size: .85rem;
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.cookie-consent-actions {
+    display: flex;
+    gap: .75rem;
+    margin-top: 1.6rem;
+}
+
+.cookie-consent-actions .submit-button,
+.cookie-decline-button {
+    flex: 1;
+    min-height: 2.7rem;
+}
+
+.cookie-decline-button {
+    padding: .7rem 1rem;
+    border: 1px solid var(--gold);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--navy-dark);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.cookie-decline-button:hover {
+    background: var(--gold-light);
+}
+
+@media (max-width: 480px) {
+    .cookie-consent-card { padding: 1.6rem; }
+    .cookie-consent-actions { flex-direction: column; }
+}

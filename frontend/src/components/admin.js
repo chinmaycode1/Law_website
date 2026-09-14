@@ -312,6 +312,14 @@
         return actionButton(label, iconId, action);
     }
 
+    function paymentTag(status) {
+        if (!['paid', 'refunded'].includes(status)) return null;
+        const tag = document.createElement('span');
+        tag.className = `payment-tag payment-${status}`;
+        addText(tag, status === 'paid' ? 'Paid' : 'Refunded');
+        return tag;
+    }
+
     function renderSchedules(data) {
         elements.leadsContainer.replaceChildren();
         elements.resultCount.textContent = `${data.total} ${data.total === 1 ? 'consultation' : 'consultations'}`;
@@ -330,7 +338,7 @@
         table.className = 'leads-table';
         const head = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Name', 'Case Type', 'Preferred', 'Status', 'Actions'].forEach((label) => { const header = document.createElement('th'); header.className = 'table-heading'; header.scope = 'col'; header.textContent = label; headerRow.appendChild(header); });
+        ['Name', 'Case Type', 'Preferred', 'Payment', 'Status', 'Actions'].forEach((label) => { const header = document.createElement('th'); header.className = 'table-heading'; header.scope = 'col'; header.textContent = label; headerRow.appendChild(header); });
         head.appendChild(headerRow);
         const body = document.createElement('tbody');
         data.schedules.forEach((schedule) => {
@@ -339,14 +347,15 @@
             const name = document.createElement('td'); name.dataset.label = 'Name'; addText(name, user.name || 'Unknown client', 'lead-name'); addText(name, user.email || '', 'schedule-client-email');
             const caseType = document.createElement('td'); caseType.dataset.label = 'Case Type'; addText(caseType, caseLabels[schedule.caseType] || schedule.caseType);
             const preferred = document.createElement('td'); preferred.dataset.label = 'Preferred'; addText(preferred, `${formatDateOnly(schedule.preferredDate)} at ${schedule.preferredTime}`); addText(preferred, schedule.mode, 'schedule-mode');
+            const payment = document.createElement('td'); payment.dataset.label = 'Payment'; const tag = paymentTag(schedule.payment?.status); if (tag) payment.appendChild(tag); addText(payment, schedule.payment?.paymentId || 'Not recorded', 'schedule-client-email');
             const status = document.createElement('td'); status.dataset.label = 'Status'; addText(status, schedule.status, `schedule-status status-${schedule.status}`);
             const actions = document.createElement('td'); actions.dataset.label = 'Actions'; actions.className = 'actions-cell';
             actions.appendChild(scheduleActionButton('View consultation', 'eye', () => openScheduleDetails(schedule, false)));
             if (['pending', 'rescheduled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Confirm consultation', 'check', () => openScheduleDetails(schedule, true, 'confirm')));
             if (['pending', 'confirmed', 'rescheduled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Reschedule consultation', 'alert', () => openScheduleDetails(schedule, true, 'reschedule')));
             if (schedule.status === 'confirmed') actions.appendChild(scheduleActionButton('Complete consultation', 'check', async () => { try { await updateSchedule(schedule._id, 'complete'); } catch (error) { showPageError(error); } }));
-            if (!['completed', 'cancelled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Cancel consultation', 'trash', () => cancelSchedule(schedule._id)));
-            [name, caseType, preferred, status, actions].forEach((cell) => row.appendChild(cell));
+            if (!['completed', 'cancelled'].includes(schedule.status)) actions.appendChild(scheduleActionButton(schedule.payment?.status === 'paid' ? 'Cancel and refund consultation' : 'Cancel consultation', 'trash', () => cancelSchedule(schedule._id, schedule.payment?.status === 'paid')));
+            [name, caseType, preferred, payment, status, actions].forEach((cell) => row.appendChild(cell));
             body.appendChild(row);
         });
         table.appendChild(body);
@@ -373,7 +382,8 @@
         const user = schedule.userId || {};
         elements.scheduleDetailTitle.textContent = user.name || 'Consultation request';
         elements.scheduleDetailGrid.replaceChildren();
-        [['Name', user.name || 'Unknown client'], ['Email', user.email || ''], ['Case type', caseLabels[schedule.caseType] || schedule.caseType], ['Preferred', `${formatDateOnly(schedule.preferredDate)} at ${schedule.preferredTime}`], ['Mode', schedule.mode], ['Status', schedule.status], ['Received', formatDate(schedule.createdAt)]].forEach(([label, value]) => {
+        const payment = schedule.payment || {};
+        [['Name', user.name || 'Unknown client'], ['Email', user.email || ''], ['Case type', caseLabels[schedule.caseType] || schedule.caseType], ['Preferred', `${formatDateOnly(schedule.preferredDate)} at ${schedule.preferredTime}`], ['Mode', schedule.mode], ['Status', schedule.status], ['Received', formatDate(schedule.createdAt)], ['Payment status', payment.status || 'Not recorded'], ['Amount', payment.amount ? `₹${(payment.amount / 100).toLocaleString('en-IN')}` : 'Not recorded'], ['Payment method', payment.method || 'Not recorded'], ['Payment ID', payment.paymentId || 'Not recorded'], ['Paid date', payment.paidAt ? formatDate(payment.paidAt) : 'Not recorded']].forEach(([label, value]) => {
             const item = document.createElement('div'); item.className = 'detail-item'; addText(item, label, 'detail-label'); addText(item, value, 'detail-value'); elements.scheduleDetailGrid.appendChild(item);
         });
         elements.scheduleDetailNotes.textContent = schedule.notes || 'No notes provided.';
@@ -415,10 +425,10 @@
         if (state.view === 'schedules') await loadSchedules();
     }
 
-    async function cancelSchedule(id) {
-        if (!window.confirm('Cancel this consultation?')) return;
+    async function cancelSchedule(id, shouldRefund = false) {
+        if (!window.confirm(shouldRefund ? 'Cancel and refund this consultation?' : 'Cancel this consultation?')) return;
         const note = window.prompt('Optional cancellation note:') || '';
-        try { await updateSchedule(id, 'cancel', null, note.trim()); } catch (error) { showPageError(error); }
+        try { await updateSchedule(id, shouldRefund ? 'refund' : 'cancel', null, note.trim()); } catch (error) { showPageError(error); }
     }
 
     async function loadDashboard() {

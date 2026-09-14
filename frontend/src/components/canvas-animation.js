@@ -23,6 +23,11 @@ class FullScreenScrollCanvas {
         
         this.isReady = false;
         this.rafId = null;
+        this.paused = false;
+        window.addEventListener('cookie-consent-gate', (event) => {
+            this.paused = Boolean(event.detail?.paused);
+            if (!this.paused && this.isReady) this.updateFrame(this.currentFrame);
+        });
         
         this.init();
     }
@@ -167,7 +172,7 @@ class FullScreenScrollCanvas {
      * Draw specific frame to canvas with cover-fit
      */
     updateFrame(index) {
-        if (!this.frames[index] || !this.frames[index].complete) return;
+        if (this.paused || !this.frames[index] || !this.frames[index].complete) return;
         
         const img = this.frames[index];
         const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
