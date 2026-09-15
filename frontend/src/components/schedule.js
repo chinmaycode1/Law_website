@@ -10,14 +10,16 @@
     const message = document.getElementById('scheduleMessage');
     const submit = document.getElementById('scheduleSubmit');
     const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
-    const labels = { 'criminal-defense': 'Criminal Defense', 'white-collar': 'White-Collar Crimes', bail: 'Bail Matters', appeal: 'Appeal/Revision', ndps: 'NDPS/Drug Offense', other: 'Other' };
-    const modeLabels = { 'in-person': 'In-person at chamber', 'video-call': 'Video call', 'phone-call': 'Phone call' };
+    const labels = { 'criminal-defense': 'practice_criminal', 'white-collar': 'practice_white_collar', bail: 'practice_bail', appeal: 'practice_appeal', ndps: 'practice_ndps', other: 'other' };
+    const modeLabels = { 'in-person': 'in_person', 'video-call': 'video_call', 'phone-call': 'phone_call' };
+    let currentSchedules = [];
+    const t = (key) => window.siteI18n.translate(key);
 
     function formatDate(value) {
         return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
     }
 
-    function formatStatus(status) { return status.charAt(0).toUpperCase() + status.slice(1); }
+    function formatStatus(status) { return t(`status_${status}`) || status; }
 
     function paymentTag(status) {
         if (!['paid', 'refunded'].includes(status)) return null;
@@ -32,7 +34,7 @@
             check.appendChild(path);
             tag.append(check);
         }
-        tag.appendChild(document.createTextNode(status === 'paid' ? 'Paid' : 'Refunded'));
+        tag.appendChild(document.createTextNode(t(`status_${status}`)));
         return tag;
     }
 
@@ -65,7 +67,7 @@
         const heading = document.createElement('div');
         heading.className = 'schedule-card-heading';
         const title = document.createElement('h4');
-        title.textContent = labels[schedule.caseType] || schedule.caseType;
+        title.textContent = t(labels[schedule.caseType]) || schedule.caseType;
         const status = document.createElement('span');
         status.className = `schedule-status status-${schedule.status}`;
         const dot = document.createElement('span');
@@ -80,14 +82,14 @@
         heading.append(title, badges);
         const details = document.createElement('p');
         details.className = 'schedule-card-details';
-        details.textContent = `${formatDate(schedule.preferredDate)} at ${schedule.preferredTime} - ${modeLabels[schedule.mode] || schedule.mode}`;
+        details.textContent = window.siteI18n.interpolate(t('schedule_details'), { date: formatDate(schedule.preferredDate), time: schedule.preferredTime, mode: t(modeLabels[schedule.mode]) || schedule.mode });
         card.append(heading, details);
         const timeline = window.lawTimeline?.render(schedule.updates);
         if (timeline) {
             const disclosure = document.createElement('details');
             disclosure.className = 'timeline-disclosure';
             const summary = document.createElement('summary');
-            summary.textContent = 'View updates';
+            summary.textContent = t('view_updates');
             disclosure.append(summary, timeline);
             card.appendChild(disclosure);
         }
@@ -100,7 +102,7 @@
         if (!upcoming.length) return;
         const heading = document.createElement('h4');
         heading.className = 'schedule-list-heading';
-        heading.textContent = 'Your consultation requests';
+        heading.textContent = t('consultation_requests');
         list.appendChild(heading);
         upcoming.forEach((schedule) => list.appendChild(renderSchedule(schedule)));
     }
@@ -111,7 +113,8 @@
             const body = await response.json();
             if (response.status === 401) throw new Error('Please sign in with Google to continue.');
             if (!response.ok) throw new Error(body.message || 'Could not load consultation requests.');
-            renderSchedules(body.schedules || []);
+            currentSchedules = body.schedules || [];
+            renderSchedules(currentSchedules);
         } catch (error) {
             list.replaceChildren();
             if (error.message.includes('sign in')) showMessage('error', error.message);
@@ -146,11 +149,11 @@
             return;
         }
         submit.disabled = true;
-        submit.textContent = 'Preparing secure payment...';
+        submit.textContent = t('payment_preparing');
         message.style.display = 'none';
         try {
             if (!window.Razorpay) {
-                showMessage('error', 'Secure payment is temporarily unavailable. Please try again.');
+                showMessage('error', t('payment_unavailable'));
                 return;
             }
             const orderResponse = await fetch(`${apiBase}/payment/order`, {
@@ -160,15 +163,15 @@
             });
             const orderBody = await orderResponse.json();
             if (orderResponse.status === 401) {
-                showMessage('error', 'Your session has expired. Please sign in again.');
+                showMessage('error', t('session_expired'));
                 window.lawAuth.focusSignIn();
                 return;
             }
             if (!orderResponse.ok) {
-                showMessage('error', orderBody.message || 'Secure payment is temporarily unavailable. Please try again.');
+                showMessage('error', orderBody.message || t('payment_unavailable'));
                 return;
             }
-            submit.textContent = 'Complete payment...';
+            submit.textContent = t('payment_complete');
             await new Promise((resolve) => {
                 let settled = false;
                 const finish = () => { if (!settled) { settled = true; resolve(); } };
@@ -191,7 +194,7 @@
                             });
                             const verifyBody = await verifyResponse.json();
                             if (!verifyResponse.ok || verifyBody.verified !== true) {
-                                showMessage('error', 'Payment could not be verified. If money was deducted it auto-refunds in 5–7 days.');
+                                showMessage('error', t('payment_verified_error'));
                                 return;
                             }
                             const scheduleResponse = await fetch(`${apiBase}/schedule`, {
@@ -203,33 +206,34 @@
                             const scheduleBody = await scheduleResponse.json();
                             if (!scheduleResponse.ok) {
                                 if (Array.isArray(scheduleBody.errors)) showErrors(scheduleBody.errors);
-                                showMessage('error', scheduleBody.message || 'Payment succeeded, but the request could not be sent. Please contact the office.');
+                                showMessage('error', scheduleBody.message || t('payment_request_failed'));
                                 return;
                             }
-                            showMessage('success', 'Your consultation request has been received.');
+                            showMessage('success', t('request_received'));
                             form.reset();
                             setTomorrowMinimum();
                             await loadSchedules();
                         } catch (error) {
-                            showMessage('error', 'Payment could not be verified. If money was deducted it auto-refunds in 5–7 days.');
+                            showMessage('error', t('payment_verified_error'));
                         } finally {
                             finish();
                         }
                     },
-                    modal: { ondismiss: () => { showMessage('neutral', 'Payment cancelled. Your request was NOT sent.'); finish(); } }
+                    modal: { ondismiss: () => { showMessage('neutral', t('payment_cancelled')); finish(); } }
                 });
                 checkout.open();
             });
         } catch (error) {
-            showMessage('error', 'We could not submit your request. Please try again.');
+            showMessage('error', t('submit_error'));
         } finally {
             submit.disabled = false;
-            submit.textContent = 'Pay ₹3,000 & Request Consultation';
+            submit.textContent = t('pay_request');
         }
     }
 
     signInLink.addEventListener('click', () => window.lawAuth?.focusSignIn());
     form.addEventListener('submit', submitSchedule);
+    window.addEventListener('languagechange', () => renderSchedules(currentSchedules));
     window.lawAuth?.subscribe(render);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => render(window.lawAuth?.user));
     else render(window.lawAuth?.user);

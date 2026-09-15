@@ -24,12 +24,12 @@ class ContactForm {
         this.clearFieldErrors();
 
         if (this.form.elements.website.value) {
-            this.showMessage('success', 'Thank you. Your message has been received.');
+            this.showMessage('success', window.siteI18n.translate('form_thank_you'));
             return;
         }
 
         if (!window.lawAuth || !window.lawAuth.isSignedIn()) {
-            this.showMessage('error', 'Please sign in with Google to send your request.');
+            this.showMessage('error', window.siteI18n.translate('form_sign_in'));
             window.lawAuth?.focusSignIn();
             return;
         }
@@ -50,7 +50,7 @@ class ContactForm {
         
         // Disable button
         this.submitButton.disabled = true;
-        this.submitButton.textContent = 'Sending...';
+        this.submitButton.textContent = window.siteI18n.translate('form_sending');
         
         try {
             const response = await fetch(this.apiEndpoint, {
@@ -65,33 +65,33 @@ class ContactForm {
             const result = await response.json();
             
             if (response.ok) {
-                this.showMessage('success', 'Thank you. Your message has been sent successfully. We will contact you soon.');
+                this.showMessage('success', window.siteI18n.translate('form_sent'));
                 this.form.reset();
             } else {
                 if (Array.isArray(result.errors)) {
                     this.showFieldErrors(result.errors);
                 }
-                this.showMessage('error', result.message || 'Please correct the highlighted fields and try again.');
+                this.showMessage('error', result.message || window.siteI18n.translate('form_correct_fields'));
             }
         } catch (error) {
             console.error('Form submission error:', error);
-            this.showMessage('error', 'An error occurred. Please try again or contact us directly via phone.');
+            this.showMessage('error', window.siteI18n.translate('form_error'));
         } finally {
             this.submitButton.disabled = false;
-            this.submitButton.textContent = 'Send Message';
+            this.submitButton.textContent = window.siteI18n.translate('send_message');
         }
     }
     
     validateForm(data) {
         if (!data.name || !data.email || !data.phone || !data.caseType || !data.message) {
-            this.showMessage('error', 'Please fill in all required fields.');
+            this.showMessage('error', window.siteI18n.translate('form_required'));
             return false;
         }
         
         // Basic email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(data.email)) {
-            this.showMessage('error', 'Please enter a valid email address.');
+            this.showMessage('error', window.siteI18n.translate('form_valid_email'));
             return false;
         }
         
