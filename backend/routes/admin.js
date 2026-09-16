@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const Contact = require('../models/Contact');
@@ -7,7 +9,7 @@ const { isConfigured, razorpay } = require('../config/razorpay');
 
 const router = express.Router();
 const statuses = ['new', 'contacted', 'scheduled', 'resolved'];
-const contactFields = '_id name email phone caseType message status scheduledAt scheduledNote updates userId createdAt updatedAt';
+const contactFields = '_id name email phone caseType message status scheduledAt scheduledNote updates attachments userId createdAt updatedAt';
 const scheduleStatuses = ['pending', 'confirmed', 'rescheduled', 'completed', 'cancelled'];
 const scheduleFields = '_id userId caseType preferredDate preferredTime mode notes status confirmedAt adminNote payment updates createdAt updatedAt';
 const adminRateLimit = rateLimit({
@@ -30,6 +32,7 @@ function serializeContact(contact) {
         scheduledAt: contact.scheduledAt,
         scheduledNote: contact.scheduledNote,
         updates: contact.updates,
+        attachments: contact.attachments || [],
         userId: contact.userId,
         createdAt: contact.createdAt,
         updatedAt: contact.updatedAt
@@ -111,6 +114,26 @@ router.get('/contacts/:id', async (req, res, next) => {
         const contact = await Contact.findById(req.params.id).select(contactFields).lean();
         if (!contact) return res.status(404).json({ error: 'Contact not found' });
         return res.json(serializeContact(contact));
+    } catch (error) {
+        return next(error);
+    }
+});
+
+// Serve attachment files to admin
+router.get('/contacts/:id/attachments/:filename', async (req, res, next) => {
+    try {
+        const contact = await Contact.findById(req.params.id).lean();
+        if (!contact) return res.status(404).json({ error: 'Contact not found.' });
+
+        const attachment = contact.attachments && contact.attachments.find((a) => a.filename === req.params.filename);
+        if (!attachment) return res.status(404).json({ error: 'Attachment not found.' });
+
+        const filePath = path.join(__dirname, '..', 'uploads', attachment.filename);
+        if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on server.' });
+
+        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.originalName)}"`);
+        res.setHeader('Content-Type', attachment.mimetype);
+        return res.sendFile(filePath);
     } catch (error) {
         return next(error);
     }

@@ -30,6 +30,8 @@
         detailTitle: document.getElementById('detailTitle'),
         detailGrid: document.getElementById('detailGrid'),
         detailMessage: document.getElementById('detailMessage'),
+        detailAttachments: document.getElementById('detailAttachments'),
+        detailAttachmentList: document.getElementById('detailAttachmentList'),
         scheduledAtInput: document.getElementById('scheduledAtInput'),
         scheduledNoteInput: document.getElementById('scheduledNoteInput'),
         scheduleError: document.getElementById('scheduleError'),
@@ -37,6 +39,13 @@
         toast: document.getElementById('toast'),
         toastIcon: document.getElementById('toastIcon'),
         toastMessage: document.getElementById('toastMessage')
+        ,slotManagerPanel: document.getElementById('slotManagerPanel')
+        ,slotDate: document.getElementById('slotDate')
+        ,slotStart: document.getElementById('slotStart')
+        ,slotEnd: document.getElementById('slotEnd')
+        ,addSlotBtn: document.getElementById('addSlotBtn')
+        ,slotAddError: document.getElementById('slotAddError')
+        ,slotDayView: document.getElementById('slotDayView')
         ,scheduleModal: document.getElementById('scheduleModal')
         ,closeScheduleModal: document.getElementById('closeScheduleModal')
         ,scheduleDetailTitle: document.getElementById('scheduleDetailTitle')
@@ -119,7 +128,7 @@
 
     function renderViewTabs() {
         elements.viewTabs.replaceChildren();
-        [['contacts', 'Contact Requests'], ['schedules', 'Consultations']].forEach(([view, label]) => {
+        [['contacts', 'Contact Requests'], ['schedules', 'Consultations'], ['slots', 'Availability Slots']].forEach(([view, label]) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `view-tab${state.view === view ? ' active' : ''}`;
@@ -175,6 +184,13 @@
 
     function formatDateOnly(value) {
         return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+    }
+
+    function formatFileSize(bytes) {
+        if (!bytes) return '';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
 
     function statusSelect(contact) {
@@ -245,6 +261,14 @@
         const body = document.createElement('tbody');
         data.contacts.forEach((contact) => {
             const row = document.createElement('tr');
+            row.className = 'leads-row';
+            row.style.cursor = 'pointer';
+            row.setAttribute('title', 'View lead details');
+            row.addEventListener('click', (e) => {
+                // Don't trigger if user clicked the status select or action buttons
+                if (e.target.closest('select') || e.target.closest('button') || e.target.closest('a')) return;
+                openDetails(contact._id);
+            });
             const name = document.createElement('td'); name.dataset.label = 'Name'; addText(name, contact.name, 'lead-name');
             const phone = document.createElement('td'); phone.dataset.label = 'Phone'; const phoneLink = document.createElement('a'); phoneLink.href = `tel:${encodeURIComponent(contact.phone)}`; phoneLink.textContent = contact.phone; phone.appendChild(phoneLink);
             const email = document.createElement('td'); email.dataset.label = 'Email'; const emailLink = document.createElement('a'); emailLink.href = `mailto:${encodeURIComponent(contact.email)}`; emailLink.textContent = contact.email; email.appendChild(emailLink);
@@ -372,10 +396,123 @@
 
     async function loadCurrentView() {
         clearError();
+        // Toggle which panel is visible
+        elements.leadsContainer.closest('.leads-panel').hidden = state.view === 'slots';
+        elements.pagination.hidden = state.view === 'slots';
+        elements.filterTabs.hidden = state.view === 'slots';
+        elements.slotManagerPanel.hidden = state.view !== 'slots';
         try {
-            if (state.view === 'schedules') await loadSchedules();
+            if (state.view === 'slots') { await loadSlotManager(); }
+            else if (state.view === 'schedules') await loadSchedules();
             else { await loadLeads(); renderTabs(await request('/stats')); }
         } catch (error) { showPageError(error); }
+    }
+
+    // ── Slot manager ──────────────────────────────────────────────────────────
+
+    function formatSlotDate(date) {
+        return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(date));
+    }
+
+    function formatTime12(hhmm) {
+        const [h, m] = hhmm.split(':').map(Number);
+        const suffix = h < 12 ? 'AM' : 'PM';
+        return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${suffix}`;
+    }
+
+    async function loadSlotManager() {
+        const dateVal = elements.slotDate.value;
+        if (!dateVal) { elements.slotDayView.innerHTML = '<p class="slot-day-hint">Pick a date above to view or add slots.</p>'; return; }
+        await renderSlotDayView(dateVal);
+    }
+
+    async function renderSlotDayView(dateStr) {
+        elements.slotDayView.innerHTML = '<p class="slot-day-hint">Loading...</p>';
+        try {
+            const data = await request(`/slots?date=${encodeURIComponent(dateStr)}`);
+            const slots = data.slots || [];
+            elements.slotDayView.replaceChildren();
+
+            if (!slots.length) {
+                const hint = document.createElement('p');
+                hint.className = 'slot-day-hint';
+                hint.textContent = `No slots for ${formatSlotDate(dateStr + 'T00:00:00Z')}.`;
+                elements.slotDayView.appendChild(hint);
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'leads-table slot-table';
+            const head = document.createElement('thead');
+            const hr = document.createElement('tr');
+            ['Time', 'Status', 'Booked by', 'Actions'].forEach((label) => {
+                const th = document.createElement('th'); th.className = 'table-heading'; th.scope = 'col'; th.textContent = label; hr.appendChild(th);
+            });
+            head.appendChild(hr); table.appendChild(head);
+            const body = document.createElement('tbody');
+            slots.forEach((slot) => {
+                const row = document.createElement('tr');
+                const timeCell = document.createElement('td'); timeCell.dataset.label = 'Time';
+                addText(timeCell, `${formatTime12(slot.startTime)} – ${formatTime12(slot.endTime)}`, 'lead-name');
+                const statusCell = document.createElement('td'); statusCell.dataset.label = 'Status';
+                const badge = document.createElement('span');
+                badge.className = `slot-status-badge ${slot.isBooked ? 'slot-booked' : 'slot-open'}`;
+                badge.textContent = slot.isBooked ? 'Booked' : 'Open';
+                statusCell.appendChild(badge);
+                const bookedByCell = document.createElement('td'); bookedByCell.dataset.label = 'Booked by';
+                if (slot.isBooked && slot.bookedBy) {
+                    addText(bookedByCell, slot.bookedBy.name || '', 'lead-name');
+                    addText(bookedByCell, slot.bookedBy.email || '', 'schedule-client-email');
+                } else {
+                    addText(bookedByCell, '—');
+                }
+                const actionsCell = document.createElement('td'); actionsCell.dataset.label = 'Actions'; actionsCell.className = 'actions-cell';
+                if (!slot.isBooked) {
+                    const del = actionButton('Delete slot', 'trash', async () => {
+                        if (!window.confirm('Delete this open slot?')) return;
+                        try {
+                            await request(`/slots/${encodeURIComponent(slot._id)}`, { method: 'DELETE' });
+                            showToast('Slot deleted.');
+                            await renderSlotDayView(dateStr);
+                        } catch (err) {
+                            showToast(err.message || 'Could not delete slot.', true);
+                        }
+                    });
+                    actionsCell.appendChild(del);
+                }
+                [timeCell, statusCell, bookedByCell, actionsCell].forEach((c) => row.appendChild(c));
+                body.appendChild(row);
+            });
+            table.appendChild(body);
+            elements.slotDayView.appendChild(table);
+        } catch (err) {
+            elements.slotDayView.innerHTML = `<p class="slot-day-hint" style="color:var(--danger)">Could not load slots.</p>`;
+        }
+    }
+
+    async function addSlot() {
+        elements.slotAddError.textContent = '';
+        const dateVal = elements.slotDate.value;
+        const startVal = elements.slotStart.value;
+        const endVal = elements.slotEnd.value;
+        if (!dateVal) { elements.slotAddError.textContent = 'Choose a date.'; return; }
+        if (!startVal || !endVal) { elements.slotAddError.textContent = 'Choose start and end times.'; return; }
+        if (startVal >= endVal) { elements.slotAddError.textContent = 'Start time must be before end time.'; return; }
+        try {
+            const result = await request('/slots', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: dateVal, slots: [{ startTime: startVal, endTime: endVal }] })
+            });
+            if (result.conflicts && result.conflicts.length) {
+                elements.slotAddError.textContent = `A slot at ${startVal} already exists for that date.`;
+            } else {
+                showToast('Slot added.');
+            }
+            await renderSlotDayView(dateVal);
+        } catch (err) {
+            elements.slotAddError.textContent = err.message || 'Could not add slot.';
+        }
     }
 
     function renderScheduleDetail(schedule) {
@@ -446,6 +583,27 @@
                 const item = document.createElement('div'); item.className = 'detail-item'; addText(item, label, 'detail-label'); const valueRow = document.createElement('div'); valueRow.className = 'detail-value'; addText(valueRow, value); if (label === 'Email' || label === 'Phone') valueRow.appendChild(actionButton(`Copy ${label.toLowerCase()}`, 'copy', () => copyValue(value))); item.appendChild(valueRow); elements.detailGrid.appendChild(item);
             });
             elements.detailMessage.textContent = contact.message;
+
+            // Render attachments
+            const attachments = contact.attachments || [];
+            elements.detailAttachments.hidden = attachments.length === 0;
+            elements.detailAttachmentList.replaceChildren();
+            attachments.forEach((att) => {
+                const li = document.createElement('li');
+                li.className = 'attachment-item';
+                const link = document.createElement('a');
+                link.href = `${apiBase}/contacts/${encodeURIComponent(contact._id)}/attachments/${encodeURIComponent(att.filename)}`;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.className = 'attachment-link';
+                link.textContent = att.originalName;
+                const meta = document.createElement('span');
+                meta.className = 'attachment-meta';
+                meta.textContent = formatFileSize(att.size);
+                li.append(link, meta);
+                elements.detailAttachmentList.appendChild(li);
+            });
+
             elements.scheduledAtInput.value = contact.scheduledAt ? toLocalInputValue(contact.scheduledAt) : '';
             elements.scheduledNoteInput.value = contact.scheduledNote || '';
             elements.scheduleError.textContent = '';
@@ -497,5 +655,7 @@
     elements.closeScheduleModal.addEventListener('click', () => { elements.scheduleModal.hidden = true; });
     elements.saveScheduleAction.addEventListener('click', saveScheduleAction);
     elements.scheduleModal.addEventListener('click', (event) => { if (event.target === elements.scheduleModal) elements.scheduleModal.hidden = true; });
+    elements.addSlotBtn.addEventListener('click', addSlot);
+    elements.slotDate.addEventListener('change', () => { if (state.view === 'slots' && elements.slotDate.value) renderSlotDayView(elements.slotDate.value); });
     if (getKey()) showDashboard();
 })();

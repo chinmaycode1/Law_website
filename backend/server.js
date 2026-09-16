@@ -14,6 +14,7 @@ const authRoutes = require('./routes/auth');
 const myRequestsRoutes = require('./routes/myRequests');
 const scheduleRoutes = require('./routes/schedule');
 const paymentRoutes = require('./routes/payment');
+const slotsRoutes = require('./routes/slots');
 
 // Load environment variables
 
@@ -61,6 +62,8 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/my-requests', myRequestsRoutes);
 app.use('/api', scheduleRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/slots', slotsRoutes);       // public: GET /api/slots?date=
+app.use('/api', slotsRoutes);              // admin:  POST/GET/DELETE /api/admin/slots
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -73,6 +76,19 @@ app.use(express.static(frontendPath));
 
 app.use((error, req, res, next) => {
     console.error('Request error:', error.message);
+    // Handle multer-specific errors with clear messages
+    if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, message: 'One or more files exceed the 10MB size limit.' });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({ success: false, message: 'You may attach a maximum of 5 files.' });
+    }
+    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ success: false, message: 'Unexpected file field. Use the "attachments" field name.' });
+    }
+    if (error.message && error.message.startsWith('File type')) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
     const status = error.status || 500;
     res.status(status).json({ success: false, message: status === 500 ? 'An internal server error occurred.' : error.message });
 });

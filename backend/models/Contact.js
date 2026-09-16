@@ -6,6 +6,13 @@ const updateSchema = new mongoose.Schema({
     by: { type: String, enum: ['admin', 'system'], required: true }
 }, { _id: false });
 
+const attachmentSchema = new mongoose.Schema({
+    filename: { type: String, required: true },
+    originalName: { type: String, required: true },
+    mimetype: { type: String, required: true },
+    size: { type: Number, required: true }
+}, { _id: false });
+
 const contactSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, minlength: 2 },
     email: { type: String, required: true, lowercase: true, trim: true, match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
@@ -16,7 +23,8 @@ const contactSchema = new mongoose.Schema({
     status: { type: String, enum: ['new', 'contacted', 'scheduled', 'resolved'], default: 'new' },
     scheduledAt: { type: Date, default: null },
     scheduledNote: { type: String, default: '', trim: true, maxlength: 500 },
-    updates: { type: [updateSchema], default: [] }
+    updates: { type: [updateSchema], default: [] },
+    attachments: { type: [attachmentSchema], default: [] }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Contact', contactSchema);

@@ -22,3 +22,6 @@ npm-debug.log*
 # Build files
 dist/
 build/
+
+# Uploaded files
+backend/uploads/

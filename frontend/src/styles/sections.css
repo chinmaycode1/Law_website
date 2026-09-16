@@ -406,6 +406,115 @@
     border: 1px solid #f5c6cb;
 }
 
+/* File attachment drop area */
+.form-label-hint {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: #666;
+    margin-left: 0.25rem;
+}
+
+.file-drop-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1.25rem 1.5rem;
+    border: 2px dashed var(--gray-light);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    text-align: center;
+}
+
+.file-drop-area:hover,
+.file-drop-area.drag-over {
+    border-color: var(--gold);
+    background: rgba(212, 175, 55, 0.05);
+}
+
+.file-drop-area:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.file-drop-icon {
+    width: 28px;
+    height: 28px;
+    color: var(--gold);
+    opacity: 0.7;
+}
+
+.file-drop-text {
+    font-size: 0.95rem;
+    color: #444;
+    font-weight: 500;
+}
+
+.file-drop-hint {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* File chips */
+.file-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.65rem 0.3rem 0.75rem;
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: 50px;
+    font-size: 0.82rem;
+    color: #333;
+    max-width: 100%;
+}
+
+.file-chip-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.file-chip-size {
+    color: #888;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.file-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #888;
+    font-size: 1rem;
+    line-height: 1;
+    flex-shrink: 0;
+    border-radius: 50%;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.file-chip-remove:hover {
+    color: #721c24;
+    background: rgba(114, 28, 36, 0.08);
+}
+
 /* ========================================
    FOOTER
    ======================================== */
@@ -459,6 +568,38 @@
 .footer-links .admin-footer-link {
     color: #9aa0a6;
     font-size: 0.75rem;
+}
+
+/* Admin footer row — visually distinct, easy to find for the site owner */
+.footer-admin-row {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: right;
+}
+
+.admin-footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 4px;
+    color: rgba(212, 175, 55, 0.7) !important;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.admin-footer-link:hover {
+    border-color: var(--gold);
+    color: var(--gold) !important;
+}
+
+@media (max-width: 768px) {
+    .footer-admin-row { text-align: center; }
 }
 
 .footer-bottom {
@@ -527,4 +668,47 @@
     .testimonial-slider { gap: 0.5rem; }
     .testimonial-card { padding: 2rem 1.25rem; }
     .testimonial-card blockquote { font-size: 1.15rem; }
+}
+
+/* 428px — large phone */
+@media (max-width: 428px) {
+    .file-drop-area {
+        padding: 1rem;
+    }
+
+    .file-drop-text {
+        font-size: 0.88rem;
+    }
+
+    .file-chip-name {
+        max-width: 130px;
+    }
+
+    .contact-form-wrapper {
+        padding: 1.25rem;
+    }
+}
+
+/* 360px — small phone */
+@media (max-width: 360px) {
+    .file-drop-area {
+        padding: 0.85rem;
+    }
+
+    .file-chip {
+        font-size: 0.78rem;
+    }
+
+    .file-chip-name {
+        max-width: 100px;
+    }
+
+    .contact-form-wrapper {
+        padding: 1rem;
+    }
+
+    .submit-button {
+        font-size: 1rem;
+        padding: 1rem 1.5rem;
+    }
 }

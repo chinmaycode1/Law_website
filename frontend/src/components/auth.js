@@ -19,12 +19,14 @@
         const body = await result.json();
         if (!result.ok) throw new Error(body.message || 'Google sign-in failed.');
         state.user = body.user;
+        renderAuth(state.user);
         notify();
     }
 
     async function signOut() {
         await fetch(`${apiBase}/auth/logout`, { method: 'POST', credentials: 'include' });
         state.user = null;
+        renderAuth(state.user);
         notify();
     }
 

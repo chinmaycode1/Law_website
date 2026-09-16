@@ -11,15 +11,8 @@
 .status-resolved { background: #dce8df; color: #31563d; }
 .case-status-empty { padding: 2rem; color: var(--text-gray); text-align: center; }
 html, body { overflow-x: hidden; }
-.nav-auth { display: flex; align-items: center; min-height: 40px; }
-.nav-auth > div { display: flex; align-items: center; gap: .6rem; }
-.signed-in-profile { display: flex; align-items: center; gap: .45rem; max-width: 155px; overflow: hidden; }
-.signed-in-avatar { display: inline-grid; flex: 0 0 2rem; width: 2rem; height: 2rem; place-items: center; border: 2px solid var(--gold); border-radius: 50%; background: var(--navy-dark); color: var(--gold-light); font-family: var(--font-serif); font-size: .95rem; font-weight: 700; }
-.signed-in-label { overflow: hidden; color: var(--text-dark); font-size: .78rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.nav-auth-button { padding: .42rem .7rem; border: 1px solid var(--gold); border-radius: 999px; background: transparent; color: var(--text-dark); font-size: .72rem; font-weight: 700; letter-spacing: .02em; cursor: pointer; transition: background .2s ease, color .2s ease, transform .2s ease; }
-.nav-auth-button:hover { background: var(--gold); color: var(--white); transform: translateY(-1px); }
 .contact-sign-in { min-height: 40px; }
-@media (max-width: 768px) { .nav-auth { display: flex; } .nav-auth > div { max-width: 190px; overflow: hidden; } .signed-in-profile { max-width: 105px; } .signed-in-label { display: none; } .case-status-heading { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 768px) { .case-status-heading { align-items: flex-start; flex-direction: column; } }
 .status-resolved { background: var(--navy-dark); color: var(--white); }
 .update-timeline { position: relative; display: grid; gap: 1rem; margin-top: 1.25rem; padding-left: 1.25rem; }
 .update-timeline::before { position: absolute; top: .3rem; bottom: .3rem; left: .25rem; width: 1px; background: var(--gray-light); content: ''; }
@@ -57,3 +50,27 @@ html, body { overflow-x: hidden; }
 .timeline-disclosure { margin-top: 1rem; border-top: 1px solid var(--gray-light); padding-top: .75rem; }
 .timeline-disclosure summary { color: var(--navy-dark); font-size: .82rem; font-weight: 700; cursor: pointer; }
 @media (max-width: 640px) { .consultation-panel { padding: 1.5rem; } .consultation-form-grid { grid-template-columns: 1fr; gap: 1rem; } .schedule-card-heading { align-items: flex-start; flex-direction: column; gap: .5rem; } .schedule-card-badges { justify-content: flex-start; } }
+
+/* Attachments on case status cards */
+.case-status-attachments { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--gray-light); }
+.case-status-attachments-label { margin: 0 0 .4rem; color: var(--text-gray); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.case-status-attachment-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.case-status-attachment-link { color: var(--navy-dark); font-size: .86rem; text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
+.case-status-attachment-link:hover { color: var(--gold); }
+
+/* Slot picker */
+.slot-picker-hint { margin: 0; color: var(--text-gray); font-size: .9rem; }
+.slot-list { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .4rem; }
+.slot-btn { padding: .45rem .9rem; border: 2px solid var(--gray-light); border-radius: 6px; background: var(--white); color: var(--navy-dark); font-size: .88rem; font-weight: 500; cursor: pointer; transition: border-color .15s ease, background .15s ease, color .15s ease; }
+.slot-btn:hover { border-color: var(--gold); color: var(--gold); }
+.slot-btn.selected { border-color: var(--gold); background: var(--gold); color: var(--white); font-weight: 700; }
+@media (max-width: 428px) { .slot-btn { font-size: .82rem; padding: .4rem .7rem; } }
+
+/* 360px — small phone */
+@media (max-width: 360px) {
+    .consultation-panel { padding: 1rem; }
+    .consultation-header h3 { font-size: 1.6rem; }
+    .case-status-card { padding: 1rem; }
+    .slot-list { gap: .35rem; }
+    .slot-btn { font-size: .78rem; padding: .35rem .6rem; }
+}

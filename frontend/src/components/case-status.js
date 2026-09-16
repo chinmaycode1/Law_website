@@ -30,6 +30,30 @@
         });
         return timeline;
     }
+    function renderAttachments(attachments, requestId) {
+        if (!Array.isArray(attachments) || !attachments.length) return null;
+        const wrap = document.createElement('div');
+        wrap.className = 'case-status-attachments';
+        const label = document.createElement('p');
+        label.className = 'case-status-attachments-label';
+        label.textContent = t('attachments_label_short');
+        wrap.appendChild(label);
+        const ul = document.createElement('ul');
+        ul.className = 'case-status-attachment-list';
+        attachments.forEach((att) => {
+            const li = document.createElement('li');
+            const link = document.createElement('a');
+            link.href = `${apiBase}/my-requests/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(att.filename)}`;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.className = 'case-status-attachment-link';
+            link.textContent = att.originalName;
+            li.appendChild(link);
+            ul.appendChild(li);
+        });
+        wrap.appendChild(ul);
+        return wrap;
+    }
     function render(requests) {
         list.replaceChildren();
         currentRequests = requests;
@@ -43,6 +67,8 @@
             const submitted = document.createElement('p'); submitted.className = 'case-status-date'; submitted.textContent = t('submitted', { date: date(request.createdAt) });
             card.append(heading, submitted);
             if (request.scheduledAt) { const schedule = document.createElement('p'); schedule.className = 'case-status-schedule'; schedule.textContent = t('scheduled', { date: date(request.scheduledAt) }); card.appendChild(schedule); if (request.scheduledNote) { const note = document.createElement('p'); note.className = 'case-status-note'; note.textContent = request.scheduledNote; card.appendChild(note); } }
+            const attachmentBlock = renderAttachments(request.attachments, request._id);
+            if (attachmentBlock) card.appendChild(attachmentBlock);
             const timeline = renderTimeline(request.updates);
             if (timeline) card.appendChild(timeline);
             list.appendChild(card);
@@ -55,6 +81,7 @@
     }
     window.addEventListener('languagechange', () => render(currentRequests));
     window.lawTimeline = { render: renderTimeline, formatDate: date };
+    window.lawCaseStatus = { refresh: load };
     window.lawAuth?.subscribe(load);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load); else load();
 })();

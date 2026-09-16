@@ -50,6 +50,7 @@ h2 { margin: 0; font-size: 1.65rem; }
 .leads-table th { color: var(--muted); font-size: .69rem; letter-spacing: .08em; text-transform: uppercase; }
 .leads-table td a { color: var(--ink); }
 .leads-table td a:hover { color: var(--gold-dark); }
+.leads-row:hover { background: rgba(212, 175, 55, .04); }
 .lead-name { font-weight: 700; }
 .status-select { padding: .42rem .55rem; border: 1px solid var(--line); border-radius: 3px; background: var(--white); color: var(--ink); font-size: .78rem; }
 .status-select:focus { border-color: var(--gold); outline: 0; }
@@ -73,6 +74,13 @@ h2 { margin: 0; font-size: 1.65rem; }
 .detail-value { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .9rem; }
 .message-block { padding-top: 1rem; border-top: 1px solid var(--line); }
 .message-block p { margin: 0; color: var(--ink); white-space: pre-wrap; }
+
+/* Attachment list in detail modal */
+.attachment-list { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+.attachment-item { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .45rem .65rem; background: rgba(212, 175, 55, .06); border: 1px solid rgba(212, 175, 55, .22); border-radius: 4px; }
+.attachment-link { font-size: .88rem; color: var(--gold); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attachment-link:hover { color: var(--navy); }
+.attachment-meta { font-size: .75rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
 .detail-schedule { display: grid; gap: .55rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
 .detail-schedule label { color: var(--muted); font-size: .75rem; font-weight: 700; }
 .detail-schedule input, .detail-schedule textarea { width: 100%; padding: .7rem .8rem; border: 1px solid var(--line); border-radius: 3px; outline: 0; resize: vertical; }
@@ -128,4 +136,26 @@ h2 { margin: 0; font-size: 1.65rem; }
     .stats-grid { gap: .6rem; }
     .stat-card { padding: 1rem; }
     .stat-value { font-size: 2rem; }
+}
+
+/* Slot manager */
+.slot-manager-panel { background: var(--white); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.slot-manager-body { padding: 1.4rem 1.5rem; display: grid; gap: 1.75rem; }
+.slot-add-form h3 { margin: 0 0 1rem; font-family: 'Playfair Display', Georgia, serif; font-size: 1.15rem; }
+.slot-add-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .75rem; }
+.slot-add-row > div { display: grid; gap: .3rem; }
+.slot-add-row label { color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.slot-add-row input[type="date"], .slot-add-row input[type="time"] { padding: .6rem .75rem; border: 1px solid var(--line); border-radius: 3px; outline: 0; font: inherit; }
+.slot-add-row input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,.16); }
+.slot-day-hint { margin: 0; color: var(--muted); font-size: .88rem; }
+.slot-table { margin-top: .5rem; }
+.slot-status-badge { display: inline-flex; padding: .22rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 700; text-transform: capitalize; }
+.slot-open { background: rgba(212,175,55,.12); color: var(--gold-dark); }
+.slot-booked { background: var(--line); color: var(--muted); }
+@media (max-width: 640px) { .slot-add-row { flex-direction: column; align-items: stretch; } .slot-add-row .button { align-self: flex-start; } }
+
+@media (max-width: 360px) {
+    .admin-shell { padding: 1rem .75rem 3rem; }
+    .slot-add-row input[type="date"], .slot-add-row input[type="time"] { width: 100%; }
+    .attachment-item { flex-direction: column; align-items: flex-start; gap: .3rem; }
 }

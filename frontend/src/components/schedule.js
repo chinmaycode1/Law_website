@@ -9,49 +9,41 @@
     const list = document.getElementById('scheduleList');
     const message = document.getElementById('scheduleMessage');
     const submit = document.getElementById('scheduleSubmit');
+    const dateInput = document.getElementById('preferredDate');
+    const slotList = document.getElementById('slotList');
+    const slotPickerHint = document.getElementById('slotPickerHint');
+    const selectedSlotInput = document.getElementById('selectedSlotId');
     const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
-    const labels = { 'criminal-defense': 'practice_criminal', 'white-collar': 'practice_white_collar', bail: 'practice_bail', appeal: 'practice_appeal', ndps: 'practice_ndps', other: 'other' };
+
+    const caseLabels = { 'criminal-defense': 'practice_criminal', 'white-collar': 'practice_white_collar', bail: 'practice_bail', appeal: 'practice_appeal', ndps: 'practice_ndps', other: 'other' };
     const modeLabels = { 'in-person': 'in_person', 'video-call': 'video_call', 'phone-call': 'phone_call' };
+
     let currentSchedules = [];
+    let loadingSlotsFor = null; // date string currently being fetched
+
     const t = (key) => window.siteI18n.translate(key);
 
     function formatDate(value) {
         return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
     }
 
-    function formatStatus(status) { return t(`status_${status}`) || status; }
-
-    function paymentTag(status) {
-        if (!['paid', 'refunded'].includes(status)) return null;
-        const tag = document.createElement('span');
-        tag.className = `payment-tag payment-${status}`;
-        if (status === 'paid') {
-            const check = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            check.classList.add('icon');
-            check.setAttribute('aria-hidden', 'true');
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', 'm5 12 4 4L19 6');
-            check.appendChild(path);
-            tag.append(check);
-        }
-        tag.appendChild(document.createTextNode(t(`status_${status}`)));
-        return tag;
+    function formatTime(hhmm) {
+        const [h, m] = hhmm.split(':').map(Number);
+        const suffix = h < 12 ? 'AM' : 'PM';
+        const hour = h % 12 || 12;
+        return `${hour}:${String(m).padStart(2, '0')} ${suffix}`;
     }
 
+    function formatStatus(status) { return t(`status_${status}`) || status; }
+
     function clearErrors() {
-        form.querySelectorAll('.field-error').forEach((field) => {
-            field.textContent = '';
-            field.classList.remove('visible');
-        });
+        form.querySelectorAll('.field-error').forEach((f) => { f.textContent = ''; f.classList.remove('visible'); });
     }
 
     function showErrors(errors) {
         errors.forEach((error) => {
             const field = form.querySelector(`[data-error-for="${error.field}"]`);
-            if (field) {
-                field.textContent = error.message;
-                field.classList.add('visible');
-            }
+            if (field) { field.textContent = error.message; field.classList.add('visible'); }
         });
     }
 
@@ -61,13 +53,71 @@
         message.style.display = 'block';
     }
 
+    function hideMessage() { message.style.display = 'none'; }
+
+    // ── Slot picker ───────────────────────────────────────────────────────────
+
+    function renderSlotButtons(slots) {
+        slotList.replaceChildren();
+        selectedSlotInput.value = '';
+
+        if (!slots.length) {
+            slotPickerHint.textContent = t('slot_none_available') || 'No slots available for this date.';
+            slotPickerHint.style.display = 'block';
+            submit.disabled = true;
+            return;
+        }
+
+        slotPickerHint.style.display = 'none';
+        submit.disabled = false;
+
+        slots.forEach((slot) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'slot-btn';
+            btn.textContent = `${formatTime(slot.startTime)} – ${formatTime(slot.endTime)}`;
+            btn.dataset.slotId = slot._id;
+            btn.addEventListener('click', () => {
+                slotList.querySelectorAll('.slot-btn').forEach((b) => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedSlotInput.value = slot._id;
+            });
+            slotList.appendChild(btn);
+        });
+    }
+
+    async function fetchSlots(dateStr) {
+        if (loadingSlotsFor === dateStr) return;
+        loadingSlotsFor = dateStr;
+
+        slotList.replaceChildren();
+        selectedSlotInput.value = '';
+        submit.disabled = true;
+        slotPickerHint.textContent = t('slot_loading') || 'Loading available slots...';
+        slotPickerHint.style.display = 'block';
+
+        try {
+            const response = await fetch(`${apiBase}/slots?date=${encodeURIComponent(dateStr)}`);
+            if (!response.ok) throw new Error('Failed to load slots.');
+            const body = await response.json();
+            renderSlotButtons(body.slots || []);
+        } catch (error) {
+            slotPickerHint.textContent = t('slot_load_error') || 'Could not load slots. Please try again.';
+            slotPickerHint.style.display = 'block';
+        } finally {
+            loadingSlotsFor = null;
+        }
+    }
+
+    // ── Consultation list ─────────────────────────────────────────────────────
+
     function renderSchedule(schedule) {
         const card = document.createElement('article');
         card.className = 'schedule-card';
         const heading = document.createElement('div');
         heading.className = 'schedule-card-heading';
         const title = document.createElement('h4');
-        title.textContent = t(labels[schedule.caseType]) || schedule.caseType;
+        title.textContent = t(caseLabels[schedule.caseType]) || schedule.caseType;
         const status = document.createElement('span');
         status.className = `schedule-status status-${schedule.status}`;
         const dot = document.createElement('span');
@@ -77,12 +127,14 @@
         const badges = document.createElement('div');
         badges.className = 'schedule-card-badges';
         badges.append(status);
-        const payment = paymentTag(schedule.payment?.status);
-        if (payment) badges.append(payment);
         heading.append(title, badges);
         const details = document.createElement('p');
         details.className = 'schedule-card-details';
-        details.textContent = window.siteI18n.interpolate(t('schedule_details'), { date: formatDate(schedule.preferredDate), time: schedule.preferredTime, mode: t(modeLabels[schedule.mode]) || schedule.mode });
+        details.textContent = window.siteI18n.interpolate(t('schedule_details'), {
+            date: formatDate(schedule.preferredDate),
+            time: formatTime(schedule.preferredTime),
+            mode: t(modeLabels[schedule.mode]) || schedule.mode
+        });
         card.append(heading, details);
         const timeline = window.lawTimeline?.render(schedule.updates);
         if (timeline) {
@@ -98,33 +150,32 @@
 
     function renderSchedules(schedules) {
         list.replaceChildren();
-        const upcoming = schedules.filter((schedule) => ['pending', 'confirmed', 'rescheduled'].includes(schedule.status));
+        const upcoming = schedules.filter((s) => ['pending', 'confirmed', 'rescheduled'].includes(s.status));
         if (!upcoming.length) return;
         const heading = document.createElement('h4');
         heading.className = 'schedule-list-heading';
         heading.textContent = t('consultation_requests');
         list.appendChild(heading);
-        upcoming.forEach((schedule) => list.appendChild(renderSchedule(schedule)));
+        upcoming.forEach((s) => list.appendChild(renderSchedule(s)));
     }
 
     async function loadSchedules() {
         try {
             const response = await fetch(`${apiBase}/my-schedules`, { credentials: 'include' });
             const body = await response.json();
-            if (response.status === 401) throw new Error('Please sign in with Google to continue.');
-            if (!response.ok) throw new Error(body.message || 'Could not load consultation requests.');
+            if (response.status === 401) throw new Error('auth');
+            if (!response.ok) throw new Error(body.message || 'Could not load consultations.');
             currentSchedules = body.schedules || [];
             renderSchedules(currentSchedules);
         } catch (error) {
             list.replaceChildren();
-            if (error.message.includes('sign in')) showMessage('error', error.message);
         }
     }
 
     function setTomorrowMinimum() {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        document.getElementById('preferredDate').min = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+        dateInput.min = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
     }
 
     function render(user) {
@@ -133,103 +184,84 @@
         authenticated.hidden = !user;
         if (user) {
             setTomorrowMinimum();
+            submit.disabled = true; // disabled until a slot is chosen
             loadSchedules();
         }
     }
 
+    // ── Form submission ───────────────────────────────────────────────────────
+
     async function submitSchedule(event) {
         event.preventDefault();
         clearErrors();
+        hideMessage();
+
         if (!window.lawAuth?.isSignedIn()) {
             window.lawAuth?.focusSignIn();
             return;
         }
-        if (!form.checkValidity()) {
-            form.reportValidity();
+
+        if (!selectedSlotInput.value) {
+            const err = form.querySelector('[data-error-for="slotId"]');
+            if (err) { err.textContent = t('slot_required') || 'Please select an available time slot.'; err.classList.add('visible'); }
             return;
         }
+
         submit.disabled = true;
-        submit.textContent = t('payment_preparing');
-        message.style.display = 'none';
+        const originalText = submit.textContent;
+        submit.textContent = t('form_sending') || 'Submitting...';
+
         try {
-            if (!window.Razorpay) {
-                showMessage('error', t('payment_unavailable'));
-                return;
-            }
-            const orderResponse = await fetch(`${apiBase}/payment/order`, {
+            const response = await fetch(`${apiBase}/schedule`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
+                credentials: 'include',
+                body: JSON.stringify({
+                    slotId: selectedSlotInput.value,
+                    caseType: document.getElementById('scheduleCaseType').value,
+                    mode: document.getElementById('scheduleMode').value,
+                    notes: document.getElementById('scheduleNotes').value
+                })
             });
-            const orderBody = await orderResponse.json();
-            if (orderResponse.status === 401) {
-                showMessage('error', t('session_expired'));
-                window.lawAuth.focusSignIn();
+            const body = await response.json();
+
+            if (response.status === 409) {
+                // Slot was taken between page-load and submit — re-fetch so client sees fresh list
+                showMessage('error', body.message || t('slot_taken') || 'That slot was just booked. Please choose another.');
+                await fetchSlots(dateInput.value);
                 return;
             }
-            if (!orderResponse.ok) {
-                showMessage('error', orderBody.message || t('payment_unavailable'));
+
+            if (!response.ok) {
+                if (Array.isArray(body.errors)) showErrors(body.errors);
+                showMessage('error', body.message || t('submit_error'));
                 return;
             }
-            submit.textContent = t('payment_complete');
-            await new Promise((resolve) => {
-                let settled = false;
-                const finish = () => { if (!settled) { settled = true; resolve(); } };
-                const checkout = new window.Razorpay({
-                    key: orderBody.keyId,
-                    order_id: orderBody.orderId,
-                    amount: orderBody.amount,
-                    currency: 'INR',
-                    name: 'Advocate Sunil Sawargaonkar',
-                    description: 'Consultation Fee',
-                    prefill: { email: window.lawAuth.user.email, name: window.lawAuth.user.name },
-                    theme: { color: '#d4af37' },
-                    handler: async (razorpayResponse) => {
-                        try {
-                            const verifyResponse = await fetch(`${apiBase}/payment/verify`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify(razorpayResponse)
-                            });
-                            const verifyBody = await verifyResponse.json();
-                            if (!verifyResponse.ok || verifyBody.verified !== true) {
-                                showMessage('error', t('payment_verified_error'));
-                                return;
-                            }
-                            const scheduleResponse = await fetch(`${apiBase}/schedule`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({ ...Object.fromEntries(new FormData(form).entries()), paymentId: razorpayResponse.razorpay_payment_id })
-                            });
-                            const scheduleBody = await scheduleResponse.json();
-                            if (!scheduleResponse.ok) {
-                                if (Array.isArray(scheduleBody.errors)) showErrors(scheduleBody.errors);
-                                showMessage('error', scheduleBody.message || t('payment_request_failed'));
-                                return;
-                            }
-                            showMessage('success', t('request_received'));
-                            form.reset();
-                            setTomorrowMinimum();
-                            await loadSchedules();
-                        } catch (error) {
-                            showMessage('error', t('payment_verified_error'));
-                        } finally {
-                            finish();
-                        }
-                    },
-                    modal: { ondismiss: () => { showMessage('neutral', t('payment_cancelled')); finish(); } }
-                });
-                checkout.open();
-            });
+
+            showMessage('success', t('request_received') || 'Consultation request received.');
+            form.reset();
+            selectedSlotInput.value = '';
+            slotList.replaceChildren();
+            slotPickerHint.textContent = t('slot_pick_date') || 'Select a date above to see available times.';
+            slotPickerHint.style.display = 'block';
+            setTomorrowMinimum();
+            await loadSchedules();
+            window.lawCaseStatus?.refresh();
         } catch (error) {
-            showMessage('error', t('submit_error'));
+            showMessage('error', t('submit_error') || 'An error occurred. Please try again.');
         } finally {
             submit.disabled = false;
-            submit.textContent = t('pay_request');
+            submit.textContent = originalText;
         }
     }
+
+    // ── Event listeners ───────────────────────────────────────────────────────
+
+    dateInput.addEventListener('change', () => {
+        const val = dateInput.value;
+        if (!val) return;
+        fetchSlots(val);
+    });
 
     signInLink.addEventListener('click', () => window.lawAuth?.focusSignIn());
     form.addEventListener('submit', submitSchedule);

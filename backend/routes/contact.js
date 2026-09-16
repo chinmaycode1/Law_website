@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const nodemailer = require('nodemailer');
 const Contact = require('../models/Contact');
 const requireAuth = require('../middleware/requireAuth');
+const upload = require('../config/multer');
 
 const router = express.Router();
 const phonePattern = /^[6-9]\d{9}$/;
@@ -28,29 +29,40 @@ function escapeHtml(value) {
     return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
 
-router.post('/', requireAuth, validateContact, async (req, res, next) => {
+router.post('/', requireAuth, upload.array('attachments', 5), validateContact, async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(422).json({ success: false, errors: errors.array().map((error) => ({ field: error.path, message: error.msg })) });
     }
 
     try {
+        const attachments = (req.files || []).map((file) => ({
+            filename: file.filename,
+            originalName: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size
+        }));
+
         const contact = await Contact.create({
             name: req.body.name,
             email: req.body.email,
             phone: req.body.phone,
             caseType: req.body.caseType,
             message: req.body.message,
-            userId: req.user._id
+            userId: req.user._id,
+            attachments
         });
 
         if (transporter) {
             try {
+                const attachmentList = attachments.length > 0 
+                    ? `<p><strong>Attachments:</strong> ${attachments.map(a => escapeHtml(a.originalName)).join(', ')}</p>`
+                    : '';
                 await transporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: process.env.RECIPIENT_EMAIL || process.env.EMAIL_USER,
                     subject: `New Contact Form Submission - ${contact.caseType}`,
-                    html: `<h2>New Contact Form Submission</h2><p><strong>Name:</strong> ${escapeHtml(contact.name)}</p><p><strong>Email:</strong> ${escapeHtml(contact.email)}</p><p><strong>Phone:</strong> ${escapeHtml(contact.phone)}</p><p><strong>Case Type:</strong> ${escapeHtml(contact.caseType)}</p><p><strong>Message:</strong></p><p>${escapeHtml(contact.message)}</p>`
+                    html: `<h2>New Contact Form Submission</h2><p><strong>Name:</strong> ${escapeHtml(contact.name)}</p><p><strong>Email:</strong> ${escapeHtml(contact.email)}</p><p><strong>Phone:</strong> ${escapeHtml(contact.phone)}</p><p><strong>Case Type:</strong> ${escapeHtml(contact.caseType)}</p><p><strong>Message:</strong></p><p>${escapeHtml(contact.message)}</p>${attachmentList}`
                 });
             } catch (emailError) {
                 console.warn('Contact saved but email notification failed:', emailError.message);
