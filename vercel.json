@@ -5,7 +5,6 @@
   "installCommand": null,
   "framework": null,
   "outputDirectory": "frontend/public",
-  "public": true,
   "cleanUrls": true,
   "trailingSlash": false,
   "routes": [
