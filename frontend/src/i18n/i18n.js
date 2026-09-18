@@ -1,8 +1,8 @@
 (function () {
     const storageKey = 'siteLang';
     const supported = ['en', 'hi', 'mr'];
-    const titles = { en: 'Advocate Sunil Sawargaonkar - Criminal Law Expert', hi: 'अधिवक्ता सुनील सावर्गांवकर - आपराधिक कानून विशेषज्ञ', mr: 'अॅडव्होकेट सुनील सावर्गांवकर - फौजदारी कायद्याचे तज्ज्ञ' };
-    const descriptions = { en: 'Senior Criminal Lawyer Sunil Sharadrao Sawargaonkar - Expert legal advocacy in criminal defense', hi: 'वरिष्ठ आपराधिक अधिवक्ता सुनील शरद्राव सावर्गांवकर - आपराधिक बचाव में विशेषज्ञ कानूनी प्रतिनिधित्व', mr: 'ज्येष्ठ फौजदारी वकील सुनील शरद्राव सावर्गांवकर - फौजदारी बचावातील तज्ज्ञ कायदेशीर प्रतिनिधित्व' };
+    const titles = { en: 'Advocate Sunil Sawargaonkar - Criminal Law Expert', hi: 'अधिवक्ता सुनील सावरगांवकर - आपराधिक कानून विशेषज्ञ', mr: 'वकील सुनील सावरगांवकर - फौजदारी कायद्याचे तज्ज्ञ' };
+    const descriptions = { en: 'Senior Criminal Lawyer Sunil Sharadrao Sawargaonkar - Expert legal advocacy in criminal defense', hi: 'वरिष्ठ आपराधिक अधिवक्ता सुनील शरद्राव सावरगांवकर - आपराधिक बचाव में विशेषज्ञ कानूनी प्रतिनिधित्व', mr: 'ज्येष्ठ फौजदारी वकील सुनील शरद्राव सावरगांवकर - फौजदारी बचावातील तज्ज्ञ कायदेशीर प्रतिनिधित्व' };
     let current = 'en';
 
     function getLanguage() { return current; }
