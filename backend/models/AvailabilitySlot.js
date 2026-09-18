@@ -6,7 +6,9 @@ const availabilitySlotSchema = new mongoose.Schema({
     endTime: { type: String, required: true },    // "HH:MM", 24-hour
     isBooked: { type: Boolean, default: false },
     bookedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    scheduleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Schedule', default: null }
+    scheduleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Schedule', default: null },
+    // Status: 'available' (default), 'booked', 'completed' (greyed out, never bookable again)
+    status: { type: String, enum: ['available', 'booked', 'completed'], default: 'available' }
 }, { timestamps: true });
 
 // Compound unique index — the DB itself rejects duplicate slots at the same date+startTime

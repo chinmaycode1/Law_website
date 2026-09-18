@@ -19,10 +19,7 @@ class ContactForm {
         this.ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
         this.ALLOWED_EXT_LABEL = 'JPEG, PNG, WebP or PDF';
 
-        const API_URL = window.location.origin.includes('localhost')
-            ? 'http://localhost:3000/api/contact'
-            : '/api/contact';
-        this.apiEndpoint = API_URL;
+        this.apiEndpoint = (window.API_BASE || '') + '/api/contact';
 
         this.init();
     }
@@ -152,9 +149,14 @@ class ContactForm {
             return;
         }
 
+        // ENFORCE: User must be signed in
         if (!window.lawAuth || !window.lawAuth.isSignedIn()) {
-            this.showMessage('error', window.siteI18n.translate('form_sign_in'));
-            window.lawAuth?.focusSignIn();
+            this.showMessage('error', window.siteI18n.translate('form_sign_in') || 'Please sign in with Google to submit your consultation request.');
+            // Scroll to sign-in notice
+            const signInNotice = document.getElementById('contactSignInNotice');
+            if (signInNotice) {
+                signInNotice.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return;
         }
 

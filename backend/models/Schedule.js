@@ -30,7 +30,9 @@ const scheduleSchema = new mongoose.Schema({
     confirmedAt: { type: Date },
     adminNote: { type: String, trim: true, maxlength: 500 },
     payment: { type: paymentSchema, default: () => ({}) },
-    updates: { type: [updateSchema], default: [] }
+    updates: { type: [updateSchema], default: [] },
+    // Link to the actual booked slot — CANONICAL source of truth for scheduled date/time
+    slotId: { type: mongoose.Schema.Types.ObjectId, ref: 'AvailabilitySlot', default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);

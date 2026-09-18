@@ -1,7 +1,7 @@
 (() => {
     const section = document.getElementById('case-status');
     const list = document.getElementById('caseStatusList');
-    const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
+    const apiBase = (window.API_BASE || '') + '/api';
     const labels = { 'criminal-defense': 'practice_criminal', 'white-collar': 'practice_white_collar', bail: 'practice_bail', appeal: 'practice_appeal', ndps: 'practice_ndps', other: 'other' };
     let currentRequests = [];
     const t = (key, params) => window.siteI18n.interpolate(window.siteI18n.translate(key), params || {});

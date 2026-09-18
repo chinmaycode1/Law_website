@@ -1,35 +1,32 @@
 const express = require('express');
 const AvailabilitySlot = require('../models/AvailabilitySlot');
 const adminAuth = require('../middleware/adminAuth');
-const requireAuth = require('../middleware/requireAuth');
+const { parseDate, isPast, isValidTime, timeRangesOverlap, formatDate } = require('../utils/slotDate');
 
 const router = express.Router();
 
-// Validate "HH:MM" 24-hour time string
-function isValidTime(value) {
-    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
-
-// Parse a YYYY-MM-DD string to midnight UTC Date
-function parseDate(value) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-    const d = new Date(`${value}T00:00:00.000Z`);
-    return Number.isNaN(d.getTime()) ? null : d;
-}
-
-// ── Public route — unbooked slots for a given date ───────────────────────────
+// ── Public route — available slots for a given date ──────────────────────────
 
 // GET /api/slots?date=YYYY-MM-DD
-// Returns only open (isBooked: false) slots for that day. Public — no auth needed.
+// Returns only open (isBooked: false, not past, not completed) slots for that day.
+// Public — no auth needed.
 router.get('/', async (req, res, next) => {
     try {
         const date = parseDate(req.query.date);
         if (!date) return res.status(400).json({ error: 'Provide a valid date as ?date=YYYY-MM-DD' });
 
-        const slots = await AvailabilitySlot.find({ date, isBooked: false })
-            .select('_id date startTime endTime')
+        // Fetch all slots for this date
+        const allSlots = await AvailabilitySlot.find({ date })
+            .select('_id date startTime endTime isBooked status')
             .sort({ startTime: 1 })
             .lean();
+
+        // Filter: exclude booked, completed, and past slots
+        const slots = allSlots.filter(slot => {
+            if (slot.isBooked || slot.status === 'completed') return false;
+            if (isPast(slot.date, slot.endTime)) return false;
+            return true;
+        });
 
         return res.json({ slots });
     } catch (error) {
@@ -41,7 +38,7 @@ router.get('/', async (req, res, next) => {
 
 // POST /api/admin/slots
 // Body: { date: "YYYY-MM-DD", slots: [{ startTime, endTime }, ...] }
-// Accepts an array so the admin can add a whole day's slots in one request.
+// Creates slots with overlap protection.
 router.post('/admin/slots', adminAuth, async (req, res, next) => {
     try {
         const date = parseDate(req.body.date);
@@ -62,20 +59,44 @@ router.post('/admin/slots', adminAuth, async (req, res, next) => {
             }
         }
 
+        // Fetch existing slots for this date to check for overlaps
+        const existingSlots = await AvailabilitySlot.find({ date }).select('startTime endTime').lean();
+
         const results = { created: [], conflicts: [] };
 
         for (const slot of incoming) {
+            // Check for time range overlap with existing slots
+            const overlapping = existingSlots.find(existing =>
+                timeRangesOverlap(slot.startTime, slot.endTime, existing.startTime, existing.endTime)
+            );
+
+            if (overlapping) {
+                results.conflicts.push({
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    reason: `Overlaps with existing slot ${overlapping.startTime}–${overlapping.endTime}`
+                });
+                continue;
+            }
+
             try {
                 const created = await AvailabilitySlot.create({
                     date,
                     startTime: slot.startTime,
-                    endTime: slot.endTime
+                    endTime: slot.endTime,
+                    status: 'available'
                 });
                 results.created.push(created);
+                // Add to existingSlots so subsequent slots in this batch can check against it
+                existingSlots.push({ startTime: slot.startTime, endTime: slot.endTime });
             } catch (err) {
-                // Duplicate key error from the unique index
+                // Duplicate key error from the unique index (race condition)
                 if (err.code === 11000) {
-                    results.conflicts.push({ startTime: slot.startTime, endTime: slot.endTime });
+                    results.conflicts.push({ 
+                        startTime: slot.startTime, 
+                        endTime: slot.endTime,
+                        reason: 'Already exists (duplicate)' 
+                    });
                 } else {
                     throw err;
                 }
@@ -87,7 +108,7 @@ router.post('/admin/slots', adminAuth, async (req, res, next) => {
             created: results.created,
             conflicts: results.conflicts,
             message: results.conflicts.length
-                ? `${results.conflicts.length} slot(s) already exist for that date and start time and were skipped.`
+                ? `${results.conflicts.length} slot(s) conflicted and were skipped.`
                 : undefined
         });
     } catch (error) {
@@ -97,6 +118,7 @@ router.post('/admin/slots', adminAuth, async (req, res, next) => {
 
 // GET /api/admin/slots?date=YYYY-MM-DD
 // Lists all slots for a date (booked and unbooked), populates bookedBy name/email.
+// Returns computed display status: open / booked / completed / expired.
 router.get('/admin/slots', adminAuth, async (req, res, next) => {
     try {
         const date = parseDate(req.query.date);
@@ -104,10 +126,29 @@ router.get('/admin/slots', adminAuth, async (req, res, next) => {
 
         const slots = await AvailabilitySlot.find({ date })
             .populate('bookedBy', 'name email')
+            .populate('scheduleId', 'status')
             .sort({ startTime: 1 })
             .lean();
 
-        return res.json({ slots });
+        // Compute display status for admin view
+        const enrichedSlots = slots.map(slot => {
+            let displayStatus = 'open';
+            
+            if (slot.status === 'completed') {
+                displayStatus = 'completed';
+            } else if (slot.isBooked) {
+                displayStatus = 'booked';
+            } else if (isPast(slot.date, slot.endTime)) {
+                displayStatus = 'expired';
+            }
+
+            return {
+                ...slot,
+                displayStatus
+            };
+        });
+
+        return res.json({ slots: enrichedSlots });
     } catch (error) {
         return next(error);
     }

@@ -15,6 +15,7 @@
     <meta name="twitter:image" content="https://www.example-law-firm.com/share-image.jpg">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 4v24M8 8h16M8 8l-5 10a5 5 0 0 0 10 0L8 8zm16 0-5 10a5 5 0 0 0 10 0L24 8zM11 28h10' fill='none' stroke='%23d4af37' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
     <title>Advocate Sunil Sawargaonkar - Criminal Law Expert</title>
+    <script src="/config.js"></script>
     <script src="/frontend/src/i18n/translations.js"></script>
     <script src="/frontend/src/i18n/i18n.js"></script>
     <script>
@@ -146,7 +147,7 @@
                     <span class="headline-emphasis" data-i18n="hero_title_2">Crafted for You,</span>
                     <span class="headline-regular" data-i18n="hero_title_3">Not Just Cases</span>
                 </h1>
-                <p class="hero-description" data-i18n="hero_description">Senior Criminal Lawyer Sunil Sharadrao Sawargaonkar brings over 15 years of distinguished experience in criminal defense. With a track record of 500+ successful cases, he provides expert legal representation with unwavering commitment, strategic precision, and a deep understanding of criminal law complexities.</p>
+                <p class="hero-description" data-i18n="hero_description">Senior Criminal Lawyer Sunil Sharadrao Sawargaonkar brings over 15 years of distinguished experience in criminal defense. With a track record of 5,000+ successful cases, he provides expert legal representation with unwavering commitment, strategic precision, and a deep understanding of criminal law complexities.</p>
                 <a href="#contact" class="hero-cta-button" data-i18n="hero_cta">Schedule Consultation</a>
             </div>
             
@@ -156,7 +157,7 @@
                     <div class="stat-label" data-i18n="stat_years">Years Experience</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">500+</div>
+                    <div class="stat-number">5,000+</div>
                     <div class="stat-label" data-i18n="stat_cases">Cases Won</div>
                 </div>
             </div>
@@ -195,7 +196,7 @@
                         <div class="highlight-item">
                             <div class="highlight-icon"><svg class="icon" aria-hidden="true"><use href="#icon-graduation"></use></svg></div>
                             <h4 data-i18n="highlight_record">Proven Track Record</h4>
-                            <p data-i18n="highlight_record_text">500+ successful cases with exceptional outcomes</p>
+                            <p data-i18n="highlight_record_text">5,000+ successful cases with exceptional outcomes</p>
                         </div>
                         <div class="highlight-item">
                             <div class="highlight-icon"><svg class="icon" aria-hidden="true"><use href="#icon-handshake"></use></svg></div>
@@ -385,6 +386,15 @@
                     </div>
                 </div>
                 <div class="contact-form-wrapper">
+                    <!-- Sign-in required notice -->
+                    <div class="form-signin-notice" id="contactSignInNotice">
+                        <div class="signin-notice-content">
+                            <p><strong data-i18n="signin_required">Sign in Required</strong></p>
+                            <p data-i18n="signin_required_desc">Please sign in with your Google account to submit a consultation request.</p>
+                            <div id="contactFormGoogleSignIn"></div>
+                        </div>
+                    </div>
+                    
                     <form class="contact-form" id="contactForm">
                         <div class="form-group">
                             <label class="visually-hidden" for="name" data-i18n="full_name">Full Name</label>
@@ -431,7 +441,7 @@
                             <div class="field-error" id="attachmentError" data-error-for="attachments"></div>
                         </div>
                         <input type="text" name="website" tabindex="-1" autocomplete="off" hidden>
-                        <div class="contact-sign-in" id="contactGoogleSignIn"></div>
+                        <div class="contact-sign-in-bottom" id="contactGoogleSignIn"></div>
                         <button type="submit" class="submit-button" data-i18n="send_message">Send Message</button>
                         <div class="form-message" id="formMessage"></div>
                     </form>
@@ -443,10 +453,16 @@
                     <div class="section-underline"></div>
                     <p class="section-subtitle" data-i18n="consultation_subtitle">Select an available slot and our office will confirm your consultation.</p>
                 </div>
-                <div class="consultation-sign-in" id="consultationSignIn" hidden>
-                    <p data-i18n="sign_in_consultation">Please sign in with Google to request a consultation.</p>
-                    <button class="text-link" id="consultationSignInLink" type="button" data-i18n="sign_in_google">Sign in with Google</button>
+                
+                <!-- Sign-in required notice for consultation -->
+                <div class="consultation-sign-in" id="consultationSignIn">
+                    <div class="signin-notice-content">
+                        <p><strong data-i18n="signin_required">Sign in Required</strong></p>
+                        <p data-i18n="sign_in_consultation">Please sign in with Google to request a consultation.</p>
+                        <div id="consultationGoogleSignIn"></div>
+                    </div>
                 </div>
+                
                 <div class="consultation-authenticated" id="consultationAuthenticated" hidden>
                     <div class="schedule-list" id="scheduleList" aria-live="polite"></div>
                     <form class="consultation-form" id="consultationForm" novalidate>
@@ -515,7 +531,10 @@
                     <a href="/privacy.html" data-i18n="privacy_policy">Privacy Policy</a>
                 </div>
                 <div class="footer-admin-row">
-                    <a class="admin-footer-link" href="/admin.html" data-i18n="admin">Admin Dashboard</a>
+                    <a class="admin-footer-link" href="/admin.html">
+                        <svg class="icon" style="width: 14px; height: 14px;" aria-hidden="true"><use href="#icon-key"></use></svg>
+                        <span data-i18n="admin">Admin Dashboard</span>
+                    </a>
                 </div>
             </div>
             <div class="footer-bottom">

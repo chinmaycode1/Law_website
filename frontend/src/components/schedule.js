@@ -3,7 +3,6 @@
     if (!panel) return;
 
     const signIn = document.getElementById('consultationSignIn');
-    const signInLink = document.getElementById('consultationSignInLink');
     const authenticated = document.getElementById('consultationAuthenticated');
     const form = document.getElementById('consultationForm');
     const list = document.getElementById('scheduleList');
@@ -13,13 +12,14 @@
     const slotList = document.getElementById('slotList');
     const slotPickerHint = document.getElementById('slotPickerHint');
     const selectedSlotInput = document.getElementById('selectedSlotId');
-    const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
+    const apiBase = (window.API_BASE || '') + '/api';
 
     const caseLabels = { 'criminal-defense': 'practice_criminal', 'white-collar': 'practice_white_collar', bail: 'practice_bail', appeal: 'practice_appeal', ndps: 'practice_ndps', other: 'other' };
     const modeLabels = { 'in-person': 'in_person', 'video-call': 'video_call', 'phone-call': 'phone_call' };
 
     let currentSchedules = [];
     let loadingSlotsFor = null; // date string currently being fetched
+    let pollingInterval = null; // For live updates
 
     const t = (key) => window.siteI18n.translate(key);
 
@@ -35,6 +35,43 @@
     }
 
     function formatStatus(status) { return t(`status_${status}`) || status; }
+
+    // ── Lightweight polling for live updates ──────────────────────────────────
+
+    function startPolling() {
+        // Poll every 30 seconds when page is visible
+        if (pollingInterval) return; // Already polling
+        
+        pollingInterval = setInterval(() => {
+            if (document.visibilityState === 'visible' && window.lawAuth?.isSignedIn()) {
+                loadSchedules();
+            }
+        }, 30000); // 30 seconds
+    }
+
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+
+    // Refetch on window focus
+    window.addEventListener('focus', () => {
+        if (window.lawAuth?.isSignedIn()) {
+            loadSchedules();
+        }
+    });
+
+    // Stop polling when page is hidden to save resources
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            stopPolling();
+        } else if (window.lawAuth?.isSignedIn()) {
+            startPolling();
+            loadSchedules(); // Immediate refresh when page becomes visible
+        }
+    });
 
     function clearErrors() {
         form.querySelectorAll('.field-error').forEach((f) => { f.textContent = ''; f.classList.remove('visible'); });
@@ -130,9 +167,19 @@
         heading.append(title, badges);
         const details = document.createElement('p');
         details.className = 'schedule-card-details';
+        
+        // Use linked slot data if available (canonical source), else fallback to preferredDate/Time
+        let displayDate = schedule.preferredDate;
+        let displayTime = schedule.preferredTime;
+        
+        if (schedule.slotId && schedule.slotId.date && schedule.slotId.startTime) {
+            displayDate = schedule.slotId.date;
+            displayTime = schedule.slotId.startTime;
+        }
+        
         details.textContent = window.siteI18n.interpolate(t('schedule_details'), {
-            date: formatDate(schedule.preferredDate),
-            time: formatTime(schedule.preferredTime),
+            date: formatDate(displayDate),
+            time: formatTime(displayTime),
             mode: t(modeLabels[schedule.mode]) || schedule.mode
         });
         card.append(heading, details);
@@ -186,6 +233,9 @@
             setTomorrowMinimum();
             submit.disabled = true; // disabled until a slot is chosen
             loadSchedules();
+            startPolling(); // Start polling for updates
+        } else {
+            stopPolling(); // Stop polling when signed out
         }
     }
 
@@ -263,7 +313,6 @@
         fetchSlots(val);
     });
 
-    signInLink.addEventListener('click', () => window.lawAuth?.focusSignIn());
     form.addEventListener('submit', submitSchedule);
     window.addEventListener('languagechange', () => renderSchedules(currentSchedules));
     window.lawAuth?.subscribe(render);

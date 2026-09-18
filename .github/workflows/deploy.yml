@@ -1,0 +1,407 @@
+# ============================================================================
+# CI/CD PIPELINE - LAW WEBSITE SPLIT DEPLOYMENT
+# ============================================================================
+# Workflow: Build → Test → Scan → Deploy Backend (Render) → Deploy Frontend (Vercel)
+#
+# Triggers:
+#   - Push to main: Full pipeline with deployment
+#   - Pull requests: Verify + build + scan only (no deployment)
+#
+# Architecture:
+#   - Frontend: Static site on Vercel (HTML + JS + Assets)
+#   - Backend: Dockerized Node.js API on Render
+#   - Database: MongoDB Atlas (already cloud, not managed here)
+# ============================================================================
+
+name: Deploy Law Website
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Prevent concurrent deployments to the same environment
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+  DOCKER_IMAGE_NAME: law-backend
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 1: VERIFY - Lint and test backend
+  # ──────────────────────────────────────────────────────────────────────────
+  verify:
+    name: Verify Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run linter (if available)
+        working-directory: backend
+        run: |
+          if grep -q '"lint"' package.json; then
+            npm run lint
+          else
+            echo "No lint script found, skipping..."
+          fi
+        continue-on-error: false
+
+      - name: Run tests (if available)
+        working-directory: backend
+        run: |
+          if grep -q '"test"' package.json; then
+            npm test
+          else
+            echo "No test script found, skipping..."
+          fi
+        continue-on-error: false
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 2: DOCKER BUILD & TEST - Build image and verify it works
+  # ──────────────────────────────────────────────────────────────────────────
+  docker-build-test:
+    name: Docker Build & Test
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create dummy .env for testing
+        run: |
+          cat > backend/.env << EOF
+          PORT=3000
+          NODE_ENV=test
+          MONGO_URI=mongodb://localhost:27017/test_db
+          EMAIL_USER=test@example.com
+          EMAIL_PASS=dummy_password
+          RECIPIENT_EMAIL=recipient@example.com
+          FRONTEND_URL=http://localhost:3000
+          ADMIN_KEY=test_admin_key_12345678901234567890
+          GOOGLE_CLIENT_ID=test_client_id.apps.googleusercontent.com
+          GOOGLE_CLIENT_SECRET=test_client_secret
+          SESSION_JWT_SECRET=test_jwt_secret_1234567890123456789012345678901234567890
+          RAZORPAY_KEY_ID=rzp_test_dummy_key_id
+          RAZORPAY_KEY_SECRET=dummy_razorpay_secret
+          RAZORPAY_WEBHOOK_SECRET=dummy_webhook_secret
+          EOF
+
+      - name: Run container and test health endpoint
+        run: |
+          # Start container in detached mode
+          docker run -d \
+            --name test-backend \
+            -p 3000:3000 \
+            --env-file backend/.env \
+            ${{ env.DOCKER_IMAGE_NAME }}:test
+
+          # Wait for container to be ready (max 60 seconds)
+          echo "Waiting for container to start..."
+          for i in {1..60}; do
+            if docker logs test-backend 2>&1 | grep -q "Law website server running"; then
+              echo "✓ Server started successfully"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "✗ Server failed to start within 60 seconds"
+              docker logs test-backend
+              exit 1
+            fi
+            sleep 1
+          done
+
+          # Wait additional time for MongoDB connection attempt (will fail but server should still respond)
+          sleep 5
+
+          # Test health endpoint (should respond even if DB is unavailable)
+          echo "Testing health endpoint..."
+          HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || echo "000")
+          
+          echo "Health endpoint returned: $HEALTH_RESPONSE"
+          
+          if [ "$HEALTH_RESPONSE" = "200" ] || [ "$HEALTH_RESPONSE" = "500" ]; then
+            echo "✓ Health endpoint is reachable (status: $HEALTH_RESPONSE)"
+          else
+            echo "✗ Health endpoint failed or is unreachable"
+            docker logs test-backend
+            exit 1
+          fi
+
+      - name: Cleanup test container
+        if: always()
+        run: |
+          docker stop test-backend || true
+          docker rm test-backend || true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 3: SECURITY SCAN - Trivy vulnerability scan
+  # ──────────────────────────────────────────────────────────────────────────
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: docker-build-test
+    permissions:
+      security-events: write  # Required for SARIF upload
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:scan
+          cache-from: type=gha
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_IMAGE_NAME }}:scan
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'  # Don't fail here; fail in next step after upload
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Check for CRITICAL vulnerabilities
+        run: |
+          echo "Checking for CRITICAL vulnerabilities..."
+          CRITICAL_COUNT=$(grep -c '"level": "error"' trivy-results.sarif || echo "0")
+          
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "✗ Found $CRITICAL_COUNT CRITICAL vulnerabilities"
+            echo "Review them in the Security tab: ${{ github.server_url }}/${{ github.repository }}/security/code-scanning"
+            exit 1
+          else
+            echo "✓ No CRITICAL vulnerabilities found"
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 4: DEPLOY BACKEND - Trigger Render deployment and wait for health
+  # ──────────────────────────────────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy Backend (Render)
+    runs-on: ubuntu-latest
+    needs: [verify, docker-build-test, security-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    outputs:
+      backend-url: ${{ steps.set-url.outputs.url }}
+      deployment-status: ${{ steps.wait-deployment.outputs.status }}
+    steps:
+      - name: Trigger Render deployment
+        id: trigger-deploy
+        run: |
+          echo "Triggering Render deployment via deploy hook..."
+          RESPONSE=$(curl -s -o response.txt -w "%{http_code}" -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
+          
+          if [ "$RESPONSE" = "200" ] || [ "$RESPONSE" = "201" ]; then
+            echo "✓ Deployment triggered successfully"
+          else
+            echo "✗ Failed to trigger deployment (HTTP $RESPONSE)"
+            cat response.txt
+            exit 1
+          fi
+
+      - name: Set backend URL
+        id: set-url
+        run: |
+          # Extract from RENDER_DEPLOY_HOOK or use secret
+          # RENDER_DEPLOY_HOOK format: https://api.render.com/deploy/srv-xxxxx?key=yyyy
+          # Extract service ID and construct public URL
+          # For now, use a separate secret for the public URL
+          echo "url=${{ secrets.RENDER_BACKEND_URL }}" >> $GITHUB_OUTPUT
+
+      - name: Wait for Render deployment and health check
+        id: wait-deployment
+        run: |
+          echo "Waiting for Render deployment to complete..."
+          echo "This may take up to 10 minutes (free tier cold start)..."
+          
+          BACKEND_URL="${{ steps.set-url.outputs.url }}"
+          MAX_WAIT=600  # 10 minutes
+          ELAPSED=0
+          INTERVAL=15
+          
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            # Check health endpoint
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/health" || echo "000")
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✓ Backend is healthy (HTTP $HTTP_CODE)"
+              echo "status=success" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            echo "Waiting for backend... (${ELAPSED}s elapsed, HTTP $HTTP_CODE)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+          
+          echo "✗ Backend failed to become healthy within ${MAX_WAIT}s"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Report deployment failure
+        if: failure()
+        run: |
+          echo "::error::Backend deployment failed or timed out"
+          echo "Manual rollback required in Render dashboard:"
+          echo "1. Go to https://dashboard.render.com/"
+          echo "2. Select your service"
+          echo "3. Go to 'Events' tab"
+          echo "4. Click 'Rollback' on the previous successful deployment"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 5: DEPLOY FRONTEND - Deploy to Vercel and verify assets
+  # ──────────────────────────────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend (Vercel)
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.deploy-backend.outputs.deployment-status == 'success'
+    environment: production
+    outputs:
+      frontend-url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update API_BASE in config.js for production
+        run: |
+          BACKEND_URL="${{ needs.deploy-backend.outputs.backend-url }}"
+          sed -i "s|window.API_BASE = 'https://YOUR-RENDER-APP-NAME.onrender.com'|window.API_BASE = '$BACKEND_URL'|g" frontend/public/config.js
+          
+          echo "Updated config.js with backend URL: $BACKEND_URL"
+          grep "window.API_BASE" frontend/public/config.js
+
+      - name: Deploy to Vercel
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./
+
+      - name: Verify frontend deployment
+        run: |
+          FRONTEND_URL="${{ steps.deploy.outputs.preview-url }}"
+          echo "Verifying frontend at: $FRONTEND_URL"
+          
+          # Check main page
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✓ Main page is accessible (HTTP $HTTP_CODE)"
+          else
+            echo "✗ Main page failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          
+          # Check animation frame asset
+          FRAME_URL="$FRONTEND_URL/Assets/logo-frames-gold-optimized/ezgif-frame-001.jpg"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FRAME_URL" || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✓ Animation assets are accessible (HTTP $HTTP_CODE)"
+          else
+            echo "✗ Animation assets failed (HTTP $HTTP_CODE)"
+            echo "Check vercel.json configuration for Assets/ routing"
+            exit 1
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 6: DEPLOYMENT SUMMARY - Generate summary with all deployment info
+  # ──────────────────────────────────────────────────────────────────────────
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Generate deployment summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🚀 Deployment Summary
+          
+          ## Backend (Render)
+          - **Status**: ${{ needs.deploy-backend.result == 'success' && '✅ Deployed' || '❌ Failed' }}
+          - **URL**: ${{ needs.deploy-backend.outputs.backend-url }}
+          - **Health**: ${{ needs.deploy-backend.outputs.deployment-status }}
+          
+          ## Frontend (Vercel)
+          - **Status**: ${{ needs.deploy-frontend.result == 'success' && '✅ Deployed' || '❌ Failed' }}
+          - **URL**: ${{ needs.deploy-frontend.outputs.frontend-url || 'N/A' }}
+          
+          ## Rollback Instructions
+          
+          ### Render (Backend)
+          1. Go to [Render Dashboard](https://dashboard.render.com/)
+          2. Select your backend service
+          3. Navigate to **Events** tab
+          4. Click **Rollback** on the previous successful deployment
+          
+          ### Vercel (Frontend)
+          1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+          2. Select your project
+          3. Go to **Deployments** tab
+          4. Find the previous working deployment
+          5. Click **⋮ → Promote to Production**
+          
+          ## Build Info
+          - **Commit**: ${{ github.sha }}
+          - **Branch**: ${{ github.ref_name }}
+          - **Triggered by**: ${{ github.actor }}
+          - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+
+      - name: Check overall deployment status
+        run: |
+          if [ "${{ needs.deploy-backend.result }}" = "success" ] && [ "${{ needs.deploy-frontend.result }}" = "success" ]; then
+            echo "✓ Full deployment successful"
+            exit 0
+          else
+            echo "✗ Deployment encountered failures"
+            exit 1
+          fi

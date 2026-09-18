@@ -1,7 +1,7 @@
 (() => {
     const listeners = new Set();
     const state = { user: null };
-    const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
+    const apiBase = (window.API_BASE || '') + '/api';
     let googleClientId = '';
     let googleInitialized = false;
 
@@ -31,7 +31,7 @@
     }
 
     function renderAuth(user) {
-        ['googleSignIn', 'contactGoogleSignIn'].forEach((id) => {
+        ['googleSignIn', 'contactGoogleSignIn', 'contactFormGoogleSignIn', 'consultationGoogleSignIn'].forEach((id) => {
             const container = document.getElementById(id);
             if (!container) return;
             container.replaceChildren();
@@ -58,6 +58,12 @@
                 window.google.accounts.id.renderButton(container, { theme: 'outline', size: 'medium', shape: 'rectangular' });
             }
         });
+        
+        // Show/hide sign-in notices for contact form
+        const contactNotice = document.getElementById('contactSignInNotice');
+        if (contactNotice) contactNotice.hidden = Boolean(user);
+        
+        // Show/hide case status nav
         const nav = document.getElementById('caseStatusNav');
         if (nav) nav.hidden = !user;
     }
@@ -74,7 +80,7 @@
     }
 
     function showAuthError(message) {
-        const containers = ['googleSignIn', 'contactGoogleSignIn'];
+        const containers = ['googleSignIn', 'contactGoogleSignIn', 'contactFormGoogleSignIn', 'consultationGoogleSignIn'];
         containers.forEach((id) => {
             const container = document.getElementById(id);
             if (!container || state.user) return;

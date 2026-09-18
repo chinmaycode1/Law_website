@@ -1,0 +1,75 @@
+# ============================================================================
+# .dockerignore - Exclude unnecessary files from Docker build context
+# ============================================================================
+
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Node modules (will be installed during build)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Environment files (NEVER include in image - provide via Render env vars)
+.env
+.env.*
+*.env
+
+# Frontend (not needed in backend image)
+frontend/
+
+# Assets (served by Vercel, not backend)
+Assets/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+DEPLOYMENT.md
+docs/
+*.md
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+.nyc_output/
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Build artifacts
+dist/
+build/
+tmp/
+temp/
+
+# Kiro/Kilo IDE
+.kilo/
+.kiro/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -316,6 +316,50 @@
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
 }
 
+/* Sign-in Notice */
+.form-signin-notice {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(212, 175, 55, 0.05));
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.form-signin-notice[hidden] {
+    display: none;
+}
+
+.signin-notice-content p {
+    margin: 0 0 1rem 0;
+    color: #333;
+}
+
+.signin-notice-content p strong {
+    color: var(--gold-dark);
+    font-size: 1.2rem;
+}
+
+.signin-notice-content #contactFormGoogleSignIn,
+.signin-notice-content #consultationGoogleSignIn {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.consultation-sign-in {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(212, 175, 55, 0.05));
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    border-radius: 12px;
+    padding: 2.5rem;
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.consultation-sign-in[hidden] {
+    display: none;
+}
+
 .contact-form {
     display: flex;
     flex-direction: column;

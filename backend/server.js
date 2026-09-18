@@ -6,7 +6,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
-dotenv.config();
+dotenv.config({ path: require('path').join(__dirname, '.env') });
 const { connectDatabase, mongoose } = require('./config/db');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');

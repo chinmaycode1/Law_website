@@ -2,16 +2,19 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
 const Contact = require('../models/Contact');
 const Schedule = require('../models/Schedule');
+const AvailabilitySlot = require('../models/AvailabilitySlot');
 const adminAuth = require('../middleware/adminAuth');
 const { isConfigured, razorpay } = require('../config/razorpay');
+const { formatDate } = require('../utils/slotDate');
 
 const router = express.Router();
 const statuses = ['new', 'contacted', 'scheduled', 'resolved'];
 const contactFields = '_id name email phone caseType message status scheduledAt scheduledNote updates attachments userId createdAt updatedAt';
 const scheduleStatuses = ['pending', 'confirmed', 'rescheduled', 'completed', 'cancelled'];
-const scheduleFields = '_id userId caseType preferredDate preferredTime mode notes status confirmedAt adminNote payment updates createdAt updatedAt';
+const scheduleFields = '_id userId caseType preferredDate preferredTime mode notes status confirmedAt adminNote payment updates slotId createdAt updatedAt';
 const adminRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 50,
@@ -52,6 +55,7 @@ function serializeSchedule(schedule) {
         status: schedule.status,
         confirmedAt: schedule.confirmedAt,
         adminNote: schedule.adminNote,
+        slotId: schedule.slotId,
         payment: schedule.payment ? {
             status: schedule.payment.status,
             paymentId: schedule.payment.paymentId,
@@ -79,6 +83,8 @@ function caseStatusLabel(status) {
 }
 
 router.use(adminRateLimit, adminAuth);
+
+// ── Contact routes ───────────────────────────────────────────────────────────
 
 router.get('/contacts', async (req, res, next) => {
     try {
@@ -175,6 +181,18 @@ router.patch('/contacts/:id', async (req, res, next) => {
     }
 });
 
+router.delete('/contacts/:id', async (req, res, next) => {
+    try {
+        const contact = await Contact.findByIdAndDelete(req.params.id).lean();
+        if (!contact) return res.status(404).json({ error: 'Contact not found' });
+        return res.status(204).send();
+    } catch (error) {
+        return next(error);
+    }
+});
+
+// ── Schedule routes ──────────────────────────────────────────────────────────
+
 router.get('/schedules', async (req, res, next) => {
     try {
         const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
@@ -185,7 +203,14 @@ router.get('/schedules', async (req, res, next) => {
             filter.status = req.query.status;
         }
         const [schedules, total] = await Promise.all([
-            Schedule.find(filter).select(scheduleFields).populate('userId', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+            Schedule.find(filter)
+                .select(scheduleFields)
+                .populate('userId', 'name email')
+                .populate('slotId', 'date startTime endTime')
+                .sort({ createdAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .lean(),
             Schedule.countDocuments(filter)
         ]);
         return res.json({ schedules: schedules.map(serializeSchedule), total, page, pages: Math.max(Math.ceil(total / limit), 1) });
@@ -194,58 +219,304 @@ router.get('/schedules', async (req, res, next) => {
     }
 });
 
+// POST /api/admin/assign-slot
+// Assign an OPEN slot to a PENDING schedule/contact request
+// Body: { scheduleId, slotId }
+router.post('/assign-slot', async (req, res, next) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+        const { scheduleId, slotId } = req.body;
+        
+        if (!scheduleId || !slotId) {
+            await session.abortTransaction();
+            return res.status(400).json({ error: 'Both scheduleId and slotId are required' });
+        }
+
+        // Atomically claim the slot
+        const slot = await AvailabilitySlot.findOneAndUpdate(
+            { _id: slotId, isBooked: false },
+            { 
+                isBooked: true, 
+                scheduleId: scheduleId,
+                status: 'booked'
+            },
+            { new: true, session }
+        ).populate('bookedBy', 'name email');
+
+        if (!slot) {
+            await session.abortTransaction();
+            return res.status(409).json({ 
+                error: 'Slot just taken — pick another.',
+                message: 'That slot was just booked by someone else. Please select another available time.'
+            });
+        }
+
+        // Update the schedule
+        const schedule = await Schedule.findById(scheduleId).session(session);
+        if (!schedule) {
+            await session.abortTransaction();
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+
+        // If schedule had a previous slot, release it
+        if (schedule.slotId) {
+            await AvailabilitySlot.findByIdAndUpdate(
+                schedule.slotId,
+                { 
+                    isBooked: false, 
+                    bookedBy: null, 
+                    scheduleId: null,
+                    status: 'available'
+                },
+                { session }
+            );
+        }
+
+        // Update schedule with new slot info
+        schedule.slotId = slot._id;
+        schedule.preferredDate = slot.date;
+        schedule.preferredTime = slot.startTime;
+        schedule.status = 'confirmed';
+        schedule.confirmedAt = new Date();
+        
+        const dateStr = formatDate(slot.date);
+        const timeStr = slot.startTime;
+        schedule.updates.push({
+            message: `Consultation confirmed for ${dateStr} at ${timeStr} by admin`,
+            by: 'admin'
+        });
+
+        // Update slot's bookedBy
+        slot.bookedBy = schedule.userId;
+        await slot.save({ session });
+        await schedule.save({ session });
+
+        await session.commitTransaction();
+        
+        return res.status(201).json({ 
+            success: true, 
+            message: 'Slot assigned successfully',
+            schedule: serializeSchedule(schedule),
+            slot
+        });
+    } catch (error) {
+        await session.abortTransaction();
+        return next(error);
+    } finally {
+        session.endSession();
+    }
+});
+
+// PATCH /api/admin/schedules/:id
+// Admin actions: confirm, reschedule, complete, cancel, refund
 router.patch('/schedules/:id', async (req, res, next) => {
     try {
         const allowedActions = ['confirm', 'reschedule', 'complete', 'cancel', 'refund'];
-        if (!req.body || !allowedActions.includes(req.body.action)) return res.status(400).json({ error: 'Invalid schedule action' });
-        const schedule = await Schedule.findById(req.params.id);
+        if (!req.body || !allowedActions.includes(req.body.action)) {
+            return res.status(400).json({ error: 'Invalid schedule action' });
+        }
+        
+        const schedule = await Schedule.findById(req.params.id).populate('slotId');
         if (!schedule) return res.status(404).json({ error: 'Schedule not found' });
 
-        const { action, adminNote } = req.body;
-        if (adminNote !== undefined && (typeof adminNote !== 'string' || adminNote.length > 500)) return res.status(400).json({ error: 'adminNote must be 500 characters or fewer' });
-        if (action === 'reschedule' && (typeof adminNote !== 'string' || !adminNote.trim())) return res.status(400).json({ error: 'adminNote is required when rescheduling' });
-        if (['confirm', 'reschedule'].includes(action)) {
-            if (!req.body.confirmedAt || Number.isNaN(Date.parse(req.body.confirmedAt))) return res.status(400).json({ error: 'confirmedAt must be a valid date' });
-            schedule.confirmedAt = new Date(req.body.confirmedAt);
+        const { action, adminNote, newSlotId } = req.body;
+        
+        // Validation
+        if (adminNote !== undefined && (typeof adminNote !== 'string' || adminNote.length > 500)) {
+            return res.status(400).json({ error: 'adminNote must be 500 characters or fewer' });
         }
+        if (action === 'reschedule') {
+            if (!newSlotId) {
+                return res.status(400).json({ error: 'newSlotId is required when rescheduling' });
+            }
+            if (typeof adminNote !== 'string' || !adminNote.trim()) {
+                return res.status(400).json({ error: 'adminNote is required when rescheduling' });
+            }
+        }
+        
         if (adminNote !== undefined) schedule.adminNote = adminNote;
 
+        // REFUND action
         if (action === 'refund') {
             if (!isConfigured || !schedule.payment || schedule.payment.status !== 'paid' || !schedule.payment.paymentId) {
                 return res.status(400).json({ error: 'Only paid consultations can be refunded' });
             }
+            
+            // Process refund
             await razorpay.payments.refund(schedule.payment.paymentId);
             schedule.payment.status = 'refunded';
             schedule.status = 'cancelled';
             schedule.updates.push({ message: 'Consultation cancelled and payment refunded', by: 'admin' });
+            
+            // Release the slot if linked
+            if (schedule.slotId) {
+                await AvailabilitySlot.findByIdAndUpdate(schedule.slotId, {
+                    isBooked: false,
+                    bookedBy: null,
+                    scheduleId: null,
+                    status: 'available'
+                });
+            }
+            
             await schedule.save();
-            return res.json(serializeSchedule(await Schedule.findById(schedule._id).select(scheduleFields).populate('userId', 'name email').lean()));
+            return res.json(serializeSchedule(
+                await Schedule.findById(schedule._id)
+                    .select(scheduleFields)
+                    .populate('userId', 'name email')
+                    .populate('slotId', 'date startTime endTime')
+                    .lean()
+            ));
         }
 
-        const messages = {
-            confirm: `Consultation confirmed for ${formatDateTime(schedule.confirmedAt)}`,
-            reschedule: `Consultation rescheduled to ${formatDateTime(schedule.confirmedAt)}${adminNote ? `: ${adminNote}` : ''}`,
-            complete: 'Consultation completed',
-            cancel: `Consultation cancelled${adminNote ? `: ${adminNote}` : ''}`
-        };
-        schedule.status = { confirm: 'confirmed', reschedule: 'rescheduled', complete: 'completed', cancel: 'cancelled' }[action];
-        schedule.updates.push({ message: messages[action], by: 'admin' });
-        await schedule.save();
-        return res.json(serializeSchedule(await Schedule.findById(schedule._id).select(scheduleFields).populate('userId', 'name email').lean()));
+        // RESCHEDULE action — use atomic slot swap
+        if (action === 'reschedule') {
+            const session = await mongoose.startSession();
+            session.startTransaction();
+            
+            try {
+                // Atomically claim the NEW slot
+                const newSlot = await AvailabilitySlot.findOneAndUpdate(
+                    { _id: newSlotId, isBooked: false },
+                    { 
+                        isBooked: true, 
+                        bookedBy: schedule.userId, 
+                        scheduleId: schedule._id,
+                        status: 'booked'
+                    },
+                    { new: true, session }
+                );
+
+                if (!newSlot) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(409).json({ 
+                        error: 'The new slot was just booked by someone else. Please pick another.',
+                        message: 'That slot is no longer available. Please select another time.'
+                    });
+                }
+
+                // Release the OLD slot if it exists
+                if (schedule.slotId) {
+                    await AvailabilitySlot.findByIdAndUpdate(
+                        schedule.slotId,
+                        {
+                            isBooked: false,
+                            bookedBy: null,
+                            scheduleId: null,
+                            status: 'available'
+                        },
+                        { session }
+                    );
+                }
+
+                // Update the schedule
+                schedule.slotId = newSlot._id;
+                schedule.preferredDate = newSlot.date;
+                schedule.preferredTime = newSlot.startTime;
+                schedule.status = 'rescheduled';
+                schedule.confirmedAt = new Date();
+                
+                const dateStr = formatDate(newSlot.date);
+                const timeStr = newSlot.startTime;
+                schedule.updates.push({
+                    message: `Consultation rescheduled to ${dateStr} at ${timeStr}${adminNote ? `: ${adminNote}` : ''}`,
+                    by: 'admin'
+                });
+                
+                await schedule.save({ session });
+                await session.commitTransaction();
+                session.endSession();
+                
+            } catch (error) {
+                await session.abortTransaction();
+                session.endSession();
+                throw error;
+            }
+            
+            const updated = await Schedule.findById(schedule._id)
+                .select(scheduleFields)
+                .populate('userId', 'name email')
+                .populate('slotId', 'date startTime endTime')
+                .lean();
+            return res.json(serializeSchedule(updated));
+        }
+
+        // CANCEL action — release the slot
+        if (action === 'cancel') {
+            schedule.status = 'cancelled';
+            schedule.updates.push({ 
+                message: `Consultation cancelled${adminNote ? `: ${adminNote}` : ''}`, 
+                by: 'admin' 
+            });
+            
+            // Release the slot if linked
+            if (schedule.slotId) {
+                await AvailabilitySlot.findByIdAndUpdate(schedule.slotId, {
+                    isBooked: false,
+                    bookedBy: null,
+                    scheduleId: null,
+                    status: 'available'
+                });
+            }
+            
+            await schedule.save();
+            const updated = await Schedule.findById(schedule._id)
+                .select(scheduleFields)
+                .populate('userId', 'name email')
+                .populate('slotId', 'date startTime endTime')
+                .lean();
+            return res.json(serializeSchedule(updated));
+        }
+
+        // COMPLETE action — mark slot as completed (never bookable again)
+        if (action === 'complete') {
+            schedule.status = 'completed';
+            schedule.updates.push({ message: 'Consultation completed', by: 'admin' });
+            
+            // Mark the slot as completed (not released, never bookable again)
+            if (schedule.slotId) {
+                await AvailabilitySlot.findByIdAndUpdate(schedule.slotId, {
+                    status: 'completed'
+                });
+            }
+            
+            await schedule.save();
+            const updated = await Schedule.findById(schedule._id)
+                .select(scheduleFields)
+                .populate('userId', 'name email')
+                .populate('slotId', 'date startTime endTime')
+                .lean();
+            return res.json(serializeSchedule(updated));
+        }
+
+        // CONFIRM action
+        if (action === 'confirm') {
+            if (!req.body.confirmedAt || Number.isNaN(Date.parse(req.body.confirmedAt))) {
+                return res.status(400).json({ error: 'confirmedAt must be a valid date' });
+            }
+            schedule.confirmedAt = new Date(req.body.confirmedAt);
+            schedule.status = 'confirmed';
+            schedule.updates.push({ 
+                message: `Consultation confirmed for ${formatDateTime(schedule.confirmedAt)}`, 
+                by: 'admin' 
+            });
+            await schedule.save();
+            const updated = await Schedule.findById(schedule._id)
+                .select(scheduleFields)
+                .populate('userId', 'name email')
+                .populate('slotId', 'date startTime endTime')
+                .lean();
+            return res.json(serializeSchedule(updated));
+        }
+
     } catch (error) {
         return next(error);
     }
 });
 
-router.delete('/contacts/:id', async (req, res, next) => {
-    try {
-        const contact = await Contact.findByIdAndDelete(req.params.id).lean();
-        if (!contact) return res.status(404).json({ error: 'Contact not found' });
-        return res.status(204).send();
-    } catch (error) {
-        return next(error);
-    }
-});
+// ── Stats ────────────────────────────────────────────────────────────────────
 
 router.get('/stats', async (req, res, next) => {
     try {

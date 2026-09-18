@@ -41,7 +41,7 @@ router.post('/schedule', requireAuth, scheduleRateLimit, validateSchedule, async
         // If another request claimed it between page-load and submit, this returns null.
         const slot = await AvailabilitySlot.findOneAndUpdate(
             { _id: req.body.slotId, isBooked: false },
-            { isBooked: true, bookedBy: req.user._id },
+            { isBooked: true, bookedBy: req.user._id, status: 'booked' },
             { new: true }
         );
 
@@ -60,6 +60,7 @@ router.post('/schedule', requireAuth, scheduleRateLimit, validateSchedule, async
             preferredTime: slot.startTime,
             mode: req.body.mode || 'in-person',
             notes: req.body.notes,
+            slotId: slot._id, // Link to the slot
             updates: [{ message: 'Consultation request received', by: 'system' }]
         });
 
@@ -74,9 +75,11 @@ router.post('/schedule', requireAuth, scheduleRateLimit, validateSchedule, async
 });
 
 // GET /api/my-schedules
+// Returns all schedules for the logged-in user WITH linked slot data (canonical source of truth)
 router.get('/my-schedules', requireAuth, async (req, res, next) => {
     try {
         const schedules = await Schedule.find({ userId: req.user._id })
+            .populate('slotId', 'date startTime endTime') // Populate the linked slot
             .sort({ createdAt: -1 })
             .lean();
         return res.json({ success: true, schedules });

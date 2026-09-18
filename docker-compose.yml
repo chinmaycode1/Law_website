@@ -1,0 +1,74 @@
+# ============================================================================
+# DOCKER COMPOSE - LOCAL DEVELOPMENT ONLY
+# ============================================================================
+# This file is for LOCAL development convenience.
+# It runs the backend API locally via Docker.
+#
+# IMPORTANT: 
+# - MongoDB Atlas is used in ALL environments (local + production)
+# - Do NOT containerize or self-host the database
+# - The .env file must contain a valid MONGO_URI pointing to Atlas
+#
+# Usage:
+#   docker-compose up          # Start backend in foreground
+#   docker-compose up -d       # Start backend in background
+#   docker-compose down        # Stop and remove containers
+#   docker-compose logs -f     # Follow logs
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # Backend API service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: law-backend-local
+    ports:
+      # Map container port 3000 to host port 3000
+      - "3000:3000"
+    environment:
+      # Load all environment variables from backend/.env
+      # You can override specific vars here if needed
+      PORT: 3000
+      NODE_ENV: development
+    env_file:
+      # Load secrets from backend/.env
+      - ./backend/.env
+    volumes:
+      # Mount backend code for live reload (if using nodemon in dev mode)
+      # Comment out if you don't need live reload in Docker
+      - ./backend:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+    restart: unless-stopped
+    networks:
+      - law-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  law-network:
+    driver: bridge
+
+# ============================================================================
+# NOTES:
+# ============================================================================
+# 1. MongoDB: This compose file does NOT include a MongoDB container.
+#    Use MongoDB Atlas for both local dev and production.
+#
+# 2. Frontend: Not included here. Frontend runs via:
+#    - Vercel in production
+#    - Direct file serving (backend serves static) OR separate dev server locally
+#
+# 3. Environment Variables: Ensure backend/.env exists with:
+#    - MONGO_URI (MongoDB Atlas connection string)
+#    - All other required vars from .env.example
+#
+# 4. Alternative local dev without Docker:
+#    cd backend && npm run dev
+# ============================================================================

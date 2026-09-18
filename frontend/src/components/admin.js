@@ -1,5 +1,5 @@
 (() => {
-    const apiBase = window.location.origin.includes('localhost') ? 'http://localhost:3000/api/admin' : '/api/admin';
+    const apiBase = (window.API_BASE || '') + '/api/admin';
     const caseLabels = {
         'criminal-defense': 'Criminal Defense',
         'white-collar': 'White-Collar Crimes',
@@ -362,7 +362,13 @@
         table.className = 'leads-table';
         const head = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Name', 'Case Type', 'Preferred', 'Payment', 'Status', 'Actions'].forEach((label) => { const header = document.createElement('th'); header.className = 'table-heading'; header.scope = 'col'; header.textContent = label; headerRow.appendChild(header); });
+        ['Name', 'Case Type', 'Preferred', 'Slot Status', 'Payment', 'Status', 'Actions'].forEach((label) => { 
+            const header = document.createElement('th'); 
+            header.className = 'table-heading'; 
+            header.scope = 'col'; 
+            header.textContent = label; 
+            headerRow.appendChild(header); 
+        });
         head.appendChild(headerRow);
         const body = document.createElement('tbody');
         data.schedules.forEach((schedule) => {
@@ -371,15 +377,39 @@
             const name = document.createElement('td'); name.dataset.label = 'Name'; addText(name, user.name || 'Unknown client', 'lead-name'); addText(name, user.email || '', 'schedule-client-email');
             const caseType = document.createElement('td'); caseType.dataset.label = 'Case Type'; addText(caseType, caseLabels[schedule.caseType] || schedule.caseType);
             const preferred = document.createElement('td'); preferred.dataset.label = 'Preferred'; addText(preferred, `${formatDateOnly(schedule.preferredDate)} at ${schedule.preferredTime}`); addText(preferred, schedule.mode, 'schedule-mode');
+            
+            // Slot status column
+            const slotStatus = document.createElement('td'); slotStatus.dataset.label = 'Slot Status';
+            if (schedule.slotId) {
+                const badge = document.createElement('span');
+                badge.className = 'slot-status-badge slot-booked';
+                badge.textContent = 'Assigned';
+                slotStatus.appendChild(badge);
+                if (schedule.slotId.date && schedule.slotId.startTime) {
+                    addText(slotStatus, `${formatDateOnly(schedule.slotId.date)} ${schedule.slotId.startTime}`, 'schedule-client-email');
+                }
+            } else {
+                const badge = document.createElement('span');
+                badge.className = 'slot-status-badge slot-open';
+                badge.textContent = 'Not assigned';
+                slotStatus.appendChild(badge);
+            }
+            
             const payment = document.createElement('td'); payment.dataset.label = 'Payment'; const tag = paymentTag(schedule.payment?.status); if (tag) payment.appendChild(tag); addText(payment, schedule.payment?.paymentId || 'Not recorded', 'schedule-client-email');
             const status = document.createElement('td'); status.dataset.label = 'Status'; addText(status, schedule.status, `schedule-status status-${schedule.status}`);
             const actions = document.createElement('td'); actions.dataset.label = 'Actions'; actions.className = 'actions-cell';
             actions.appendChild(scheduleActionButton('View consultation', 'eye', () => openScheduleDetails(schedule, false)));
+            
+            // Assign slot button for pending schedules without a slot
+            if (schedule.status === 'pending' && !schedule.slotId) {
+                actions.appendChild(scheduleActionButton('Assign slot', 'calendar', () => openSlotAssignment(schedule)));
+            }
+            
             if (['pending', 'rescheduled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Confirm consultation', 'check', () => openScheduleDetails(schedule, true, 'confirm')));
             if (['pending', 'confirmed', 'rescheduled'].includes(schedule.status)) actions.appendChild(scheduleActionButton('Reschedule consultation', 'alert', () => openScheduleDetails(schedule, true, 'reschedule')));
             if (schedule.status === 'confirmed') actions.appendChild(scheduleActionButton('Complete consultation', 'check', async () => { try { await updateSchedule(schedule._id, 'complete'); } catch (error) { showPageError(error); } }));
             if (!['completed', 'cancelled'].includes(schedule.status)) actions.appendChild(scheduleActionButton(schedule.payment?.status === 'paid' ? 'Cancel and refund consultation' : 'Cancel consultation', 'trash', () => cancelSchedule(schedule._id, schedule.payment?.status === 'paid')));
-            [name, caseType, preferred, payment, status, actions].forEach((cell) => row.appendChild(cell));
+            [name, caseType, preferred, slotStatus, payment, status, actions].forEach((cell) => row.appendChild(cell));
             body.appendChild(row);
         });
         table.appendChild(body);
@@ -445,20 +475,40 @@
             table.className = 'leads-table slot-table';
             const head = document.createElement('thead');
             const hr = document.createElement('tr');
-            ['Time', 'Status', 'Booked by', 'Actions'].forEach((label) => {
+            ['Time', 'Status', 'Booked by', 'Schedule', 'Actions'].forEach((label) => {
                 const th = document.createElement('th'); th.className = 'table-heading'; th.scope = 'col'; th.textContent = label; hr.appendChild(th);
             });
             head.appendChild(hr); table.appendChild(head);
             const body = document.createElement('tbody');
             slots.forEach((slot) => {
                 const row = document.createElement('tr');
+                
+                // Apply color coding based on display status
+                if (slot.displayStatus === 'completed') row.style.opacity = '0.6';
+                if (slot.displayStatus === 'expired') row.style.opacity = '0.5';
+                
                 const timeCell = document.createElement('td'); timeCell.dataset.label = 'Time';
                 addText(timeCell, `${formatTime12(slot.startTime)} – ${formatTime12(slot.endTime)}`, 'lead-name');
+                
                 const statusCell = document.createElement('td'); statusCell.dataset.label = 'Status';
                 const badge = document.createElement('span');
-                badge.className = `slot-status-badge ${slot.isBooked ? 'slot-booked' : 'slot-open'}`;
-                badge.textContent = slot.isBooked ? 'Booked' : 'Open';
+                badge.className = 'slot-status-badge';
+                
+                if (slot.displayStatus === 'completed') {
+                    badge.className += ' slot-completed';
+                    badge.textContent = 'Completed';
+                } else if (slot.displayStatus === 'booked') {
+                    badge.className += ' slot-booked';
+                    badge.textContent = 'Booked';
+                } else if (slot.displayStatus === 'expired') {
+                    badge.className += ' slot-expired';
+                    badge.textContent = 'Expired';
+                } else {
+                    badge.className += ' slot-open';
+                    badge.textContent = 'Open';
+                }
                 statusCell.appendChild(badge);
+                
                 const bookedByCell = document.createElement('td'); bookedByCell.dataset.label = 'Booked by';
                 if (slot.isBooked && slot.bookedBy) {
                     addText(bookedByCell, slot.bookedBy.name || '', 'lead-name');
@@ -466,8 +516,33 @@
                 } else {
                     addText(bookedByCell, '—');
                 }
+                
+                const scheduleCell = document.createElement('td'); scheduleCell.dataset.label = 'Schedule';
+                if (slot.scheduleId) {
+                    const link = document.createElement('a');
+                    link.href = '#';
+                    link.textContent = `View Schedule`;
+                    link.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        try {
+                            const schedData = await request(`/schedules?page=1&limit=100`);
+                            const sched = schedData.schedules.find(s => s._id === slot.scheduleId._id || s._id === slot.scheduleId);
+                            if (sched) {
+                                state.view = 'schedules';
+                                renderViewTabs();
+                                await loadSchedules();
+                            }
+                        } catch (err) {
+                            showToast('Could not load schedule.', true);
+                        }
+                    });
+                    scheduleCell.appendChild(link);
+                } else {
+                    addText(scheduleCell, '—');
+                }
+                
                 const actionsCell = document.createElement('td'); actionsCell.dataset.label = 'Actions'; actionsCell.className = 'actions-cell';
-                if (!slot.isBooked) {
+                if (!slot.isBooked && slot.displayStatus === 'open') {
                     const del = actionButton('Delete slot', 'trash', async () => {
                         if (!window.confirm('Delete this open slot?')) return;
                         try {
@@ -479,8 +554,11 @@
                         }
                     });
                     actionsCell.appendChild(del);
+                } else {
+                    addText(actionsCell, '—');
                 }
-                [timeCell, statusCell, bookedByCell, actionsCell].forEach((c) => row.appendChild(c));
+                
+                [timeCell, statusCell, bookedByCell, scheduleCell, actionsCell].forEach((c) => row.appendChild(c));
                 body.appendChild(row);
             });
             table.appendChild(body);
@@ -534,21 +612,129 @@
         renderScheduleDetail(schedule);
         elements.scheduleActionForm.hidden = !actionMode;
         elements.scheduleActionError.textContent = '';
-        elements.scheduleAdminNote.value = action === 'reschedule' ? (schedule.adminNote || '') : '';
-        elements.scheduleConfirmedAt.value = schedule.confirmedAt ? toLocalInputValue(schedule.confirmedAt) : toLocalInputValue(`${schedule.preferredDate.slice(0, 10)}T${schedule.preferredTime}:00`);
-        elements.saveScheduleAction.textContent = action === 'reschedule' ? 'Save Reschedule' : 'Confirm Consultation';
+        
+        // For reschedule action, show slot picker
+        if (action === 'reschedule') {
+            // Show reschedule UI with slot picker
+            const rescheduleSection = document.createElement('div');
+            rescheduleSection.className = 'reschedule-section';
+            rescheduleSection.id = 'rescheduleSection';
+            
+            const dateLabel = document.createElement('label');
+            dateLabel.textContent = 'New Date:';
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            dateInput.id = 'rescheduleDate';
+            dateInput.className = 'form-input';
+            
+            const slotLabel = document.createElement('label');
+            slotLabel.textContent = 'New Time Slot:';
+            const slotSelect = document.createElement('select');
+            slotSelect.id = 'rescheduleSlotSelect';
+            slotSelect.className = 'form-input';
+            slotSelect.innerHTML = '<option value="">-- Select a date first --</option>';
+            
+            const noteLabel = document.createElement('label');
+            noteLabel.textContent = 'Reason for rescheduling:';
+            
+            rescheduleSection.append(dateLabel, dateInput, slotLabel, slotSelect, noteLabel);
+            
+            // Insert before admin note input
+            elements.scheduleAdminNote.parentElement.insertBefore(rescheduleSection, elements.scheduleAdminNote.parentElement.firstChild);
+            
+            // Load slots when date changes
+            dateInput.addEventListener('change', async () => {
+                if (!dateInput.value) return;
+                try {
+                    const data = await request(`/slots?date=${encodeURIComponent(dateInput.value)}`);
+                    slotSelect.innerHTML = '';
+                    if (!data.slots || !data.slots.length) {
+                        slotSelect.innerHTML = '<option value="">No slots available</option>';
+                        return;
+                    }
+                    data.slots.forEach(slot => {
+                        const option = document.createElement('option');
+                        option.value = slot._id;
+                        option.textContent = `${formatTime12(slot.startTime)} – ${formatTime12(slot.endTime)}`;
+                        slotSelect.appendChild(option);
+                    });
+                } catch (err) {
+                    slotSelect.innerHTML = '<option value="">Error loading slots</option>';
+                }
+            });
+            
+            elements.scheduleAdminNote.value = schedule.adminNote || '';
+            elements.saveScheduleAction.textContent = 'Save Reschedule';
+        } else {
+            // Remove reschedule section if it exists
+            const existing = document.getElementById('rescheduleSection');
+            if (existing) existing.remove();
+            
+            elements.scheduleAdminNote.value = action === 'confirm' ? (schedule.adminNote || '') : '';
+            elements.scheduleConfirmedAt.value = schedule.confirmedAt ? toLocalInputValue(schedule.confirmedAt) : toLocalInputValue(`${schedule.preferredDate.slice(0, 10)}T${schedule.preferredTime}:00`);
+            elements.saveScheduleAction.textContent = 'Confirm Consultation';
+        }
+        
         elements.scheduleModal.hidden = false;
     }
 
     async function saveScheduleAction() {
         elements.scheduleActionError.textContent = '';
-        if (!elements.scheduleConfirmedAt.value) { elements.scheduleActionError.textContent = 'Choose an agreed date and time.'; return; }
-        if (scheduleAction === 'reschedule' && !elements.scheduleAdminNote.value.trim()) { elements.scheduleActionError.textContent = 'Add a reason for rescheduling.'; return; }
-        try {
-            await updateSchedule(detailScheduleId, scheduleAction, new Date(elements.scheduleConfirmedAt.value).toISOString(), elements.scheduleAdminNote.value.trim());
-            elements.scheduleModal.hidden = true;
-        } catch (error) {
-            elements.scheduleActionError.textContent = 'The consultation could not be updated. Please try again.';
+        
+        if (scheduleAction === 'reschedule') {
+            const dateInput = document.getElementById('rescheduleDate');
+            const slotSelect = document.getElementById('rescheduleSlotSelect');
+            const noteValue = elements.scheduleAdminNote.value.trim();
+            
+            if (!dateInput || !dateInput.value) {
+                elements.scheduleActionError.textContent = 'Choose a new date.';
+                return;
+            }
+            if (!slotSelect || !slotSelect.value) {
+                elements.scheduleActionError.textContent = 'Choose a new time slot.';
+                return;
+            }
+            if (!noteValue) {
+                elements.scheduleActionError.textContent = 'Add a reason for rescheduling.';
+                return;
+            }
+            
+            try {
+                await request(`/schedules/${encodeURIComponent(detailScheduleId)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'reschedule',
+                        newSlotId: slotSelect.value,
+                        adminNote: noteValue
+                    })
+                });
+                showToast('Consultation rescheduled successfully.');
+                elements.scheduleModal.hidden = true;
+                await loadStats();
+                if (state.view === 'schedules') await loadSchedules();
+            } catch (error) {
+                if (error.message.includes('just booked') || error.message.includes('no longer available')) {
+                    elements.scheduleActionError.textContent = 'That slot is no longer available. Please choose another time.';
+                    // Refresh the slot list
+                    if (dateInput.value) {
+                        dateInput.dispatchEvent(new Event('change'));
+                    }
+                } else {
+                    elements.scheduleActionError.textContent = 'Could not reschedule. Please try again.';
+                }
+            }
+        } else if (scheduleAction === 'confirm') {
+            if (!elements.scheduleConfirmedAt.value) {
+                elements.scheduleActionError.textContent = 'Choose an agreed date and time.';
+                return;
+            }
+            try {
+                await updateSchedule(detailScheduleId, scheduleAction, new Date(elements.scheduleConfirmedAt.value).toISOString(), elements.scheduleAdminNote.value.trim());
+                elements.scheduleModal.hidden = true;
+            } catch (error) {
+                elements.scheduleActionError.textContent = 'The consultation could not be updated. Please try again.';
+            }
         }
     }
 
@@ -566,6 +752,126 @@
         if (!window.confirm(shouldRefund ? 'Cancel and refund this consultation?' : 'Cancel this consultation?')) return;
         const note = window.prompt('Optional cancellation note:') || '';
         try { await updateSchedule(id, shouldRefund ? 'refund' : 'cancel', null, note.trim()); } catch (error) { showPageError(error); }
+    }
+
+    // ── Slot assignment for pending schedules ────────────────────────────────
+
+    function openSlotAssignment(schedule) {
+        detailScheduleId = schedule._id;
+        const user = schedule.userId || {};
+        
+        // Create a simple modal for slot assignment
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        modal.id = 'assignSlotModal';
+        
+        const content = document.createElement('div');
+        content.className = 'modal-content';
+        
+        const header = document.createElement('h3');
+        header.textContent = `Assign Slot to ${user.name || 'Client'}`;
+        
+        const info = document.createElement('p');
+        info.textContent = `Case: ${caseLabels[schedule.caseType] || schedule.caseType} | Preferred: ${formatDateOnly(schedule.preferredDate)} at ${schedule.preferredTime}`;
+        info.className = 'schedule-client-email';
+        
+        const dateLabel = document.createElement('label');
+        dateLabel.textContent = 'Select Date:';
+        const dateInput = document.createElement('input');
+        dateInput.type = 'date';
+        dateInput.className = 'form-input';
+        dateInput.id = 'assignSlotDate';
+        
+        const slotLabel = document.createElement('label');
+        slotLabel.textContent = 'Select Time Slot:';
+        const slotSelect = document.createElement('select');
+        slotSelect.className = 'form-input';
+        slotSelect.id = 'assignSlotSelect';
+        slotSelect.innerHTML = '<option value="">-- Select a date first --</option>';
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'form-error';
+        errorDiv.id = 'assignSlotError';
+        
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.display = 'flex';
+        buttonGroup.style.gap = '10px';
+        buttonGroup.style.marginTop = '20px';
+        
+        const assignBtn = document.createElement('button');
+        assignBtn.type = 'button';
+        assignBtn.textContent = 'Assign Slot';
+        assignBtn.className = 'button-primary';
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.className = 'button-secondary';
+        
+        buttonGroup.append(assignBtn, cancelBtn);
+        content.append(header, info, dateLabel, dateInput, slotLabel, slotSelect, errorDiv, buttonGroup);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        
+        // Load slots when date changes
+        dateInput.addEventListener('change', async () => {
+            if (!dateInput.value) return;
+            try {
+                const data = await request(`/slots?date=${encodeURIComponent(dateInput.value)}`);
+                slotSelect.innerHTML = '';
+                if (!data.slots || !data.slots.length) {
+                    slotSelect.innerHTML = '<option value="">No slots available</option>';
+                    return;
+                }
+                data.slots.forEach(slot => {
+                    const option = document.createElement('option');
+                    option.value = slot._id;
+                    option.textContent = `${formatTime12(slot.startTime)} – ${formatTime12(slot.endTime)}`;
+                    slotSelect.appendChild(option);
+                });
+            } catch (err) {
+                slotSelect.innerHTML = '<option value="">Error loading slots</option>';
+            }
+        });
+        
+        // Assign slot
+        assignBtn.addEventListener('click', async () => {
+            errorDiv.textContent = '';
+            if (!slotSelect.value) {
+                errorDiv.textContent = 'Please select a slot.';
+                return;
+            }
+            
+            try {
+                await request('/assign-slot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scheduleId: detailScheduleId,
+                        slotId: slotSelect.value
+                    })
+                });
+                showToast('Slot assigned successfully.');
+                modal.remove();
+                await loadStats();
+                if (state.view === 'schedules') await loadSchedules();
+            } catch (error) {
+                if (error.message.includes('just taken') || error.message.includes('just booked')) {
+                    errorDiv.textContent = 'That slot was just booked. Please choose another.';
+                    // Refresh slots
+                    if (dateInput.value) {
+                        dateInput.dispatchEvent(new Event('change'));
+                    }
+                } else {
+                    errorDiv.textContent = error.message || 'Could not assign slot. Please try again.';
+                }
+            }
+        });
+        
+        // Cancel
+        cancelBtn.addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     }
 
     async function loadDashboard() {
