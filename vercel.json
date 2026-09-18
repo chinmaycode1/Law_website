@@ -1,32 +1,3 @@
 {
-  "version": 2,
-  "buildCommand": null,
-  "devCommand": null,
-  "installCommand": null,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/public/$1"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/Assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/frontend/src/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=3600"
-        }
-      ]
-    }
-  ]
+  "version": 2
 }
