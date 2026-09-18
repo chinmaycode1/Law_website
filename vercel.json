@@ -3,22 +3,10 @@
   "buildCommand": null,
   "devCommand": null,
   "installCommand": null,
-  "framework": null,
-  "outputDirectory": "frontend/public",
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/Assets/(.*)",
-      "dest": "/Assets/$1"
-    },
-    {
-      "src": "/frontend/src/(.*)",
-      "dest": "/frontend/src/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/(.*)",
+      "destination": "/frontend/public/$1"
     }
   ],
   "headers": [
