@@ -12,7 +12,7 @@
 # ────────────────────────────────────────────────────────────────────────────
 # STAGE 1: DEPENDENCIES
 # ────────────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /build
 
@@ -27,7 +27,7 @@ RUN npm ci --omit=dev --ignore-scripts && \
 # ────────────────────────────────────────────────────────────────────────────
 # STAGE 2: PRODUCTION RUNTIME
 # ────────────────────────────────────────────────────────────────────────────
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Set NODE_ENV to production
 ENV NODE_ENV=production

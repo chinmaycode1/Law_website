@@ -26,7 +26,7 @@ This project uses a **split deployment architecture**:
 
 ### Prerequisites
 
-- [x] Node.js 20 LTS installed locally
+- [x] Node.js 22 LTS installed locally
 - [x] Docker installed (for local dev and Render builds)
 - [x] MongoDB Atlas account with connection string
 - [x] GitHub account with repository access
@@ -478,7 +478,7 @@ render logs --service law-backend --tail
 1. **Trivy scan fails (CRITICAL vulnerabilities)**:
    - Review Security tab for details
    - Update vulnerable packages: `npm audit fix`
-   - If base image issue, wait for node:20-alpine update or switch to node:20-slim
+   - If base image issue, wait for node:22-alpine update or switch to node:22-slim
 
 2. **Docker build fails**:
    - Check backend/package.json for syntax errors
