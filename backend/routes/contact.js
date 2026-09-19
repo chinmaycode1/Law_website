@@ -29,7 +29,16 @@ function escapeHtml(value) {
     return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
 
-router.post('/', requireAuth, upload.array('attachments', 5), validateContact, async (req, res, next) => {
+// TEMPORARY: Auth optional for contact form
+// If user is authenticated, attach user info; otherwise allow anonymous submissions
+router.post('/', (req, res, next) => {
+    // Try to authenticate but don't fail if not authenticated
+    const authMiddleware = requireAuth;
+    authMiddleware(req, res, (err) => {
+        // Ignore auth errors, continue with or without user
+        next();
+    });
+}, upload.array('attachments', 5), validateContact, async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(422).json({ success: false, errors: errors.array().map((error) => ({ field: error.path, message: error.msg })) });
@@ -49,7 +58,7 @@ router.post('/', requireAuth, upload.array('attachments', 5), validateContact, a
             phone: req.body.phone,
             caseType: req.body.caseType,
             message: req.body.message,
-            userId: req.user._id,
+            userId: req.user ? req.user._id : null,  // Optional user ID
             attachments
         });
 
