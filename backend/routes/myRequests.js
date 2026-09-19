@@ -1,9 +1,9 @@
-const path = require('path');
-const fs = require('fs');
 const express = require('express');
+const mongoose = require('mongoose');
 const Contact = require('../models/Contact');
 const Schedule = require('../models/Schedule');
 const requireAuth = require('../middleware/requireAuth');
+const { getBucket } = require('../config/gridfs');
 
 const router = express.Router();
 
@@ -24,8 +24,8 @@ router.get('/', requireAuth, async (req, res, next) => {
     }
 });
 
-// Serve attachment files — only accessible to the user who submitted them
-router.get('/:id/attachments/:filename', requireAuth, async (req, res, next) => {
+// Serve attachment files from GridFS — only accessible to the user who submitted them
+router.get('/:id/attachments/:gridfsId', requireAuth, async (req, res, next) => {
     try {
         const contact = await Contact.findById(req.params.id).lean();
         if (!contact) return res.status(404).json({ error: 'Request not found.' });
@@ -35,15 +35,24 @@ router.get('/:id/attachments/:filename', requireAuth, async (req, res, next) => 
             return res.status(403).json({ error: 'Access denied.' });
         }
 
-        const attachment = contact.attachments.find((a) => a.filename === req.params.filename);
+        const attachment = contact.attachments.find((a) => a.gridfsId === req.params.gridfsId);
         if (!attachment) return res.status(404).json({ error: 'Attachment not found.' });
 
-        const filePath = path.join(__dirname, '..', 'uploads', attachment.filename);
-        if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on server.' });
+        const bucket = getBucket();
+        const objectId = new mongoose.Types.ObjectId(req.params.gridfsId);
+        
+        // Stream file from GridFS
+        const downloadStream = bucket.openDownloadStream(objectId);
+        
+        downloadStream.on('error', (error) => {
+            console.error('GridFS download error:', error);
+            return res.status(404).json({ error: 'File not found in storage.' });
+        });
 
         res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.originalName)}"`);
         res.setHeader('Content-Type', attachment.mimetype);
-        return res.sendFile(filePath);
+        
+        downloadStream.pipe(res);
     } catch (error) {
         return next(error);
     }

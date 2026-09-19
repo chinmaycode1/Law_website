@@ -243,6 +243,36 @@
     }
 }
 
+/* ── 1025px–1279px: reduce gaps further to prevent overlap ── */
+@media (min-width: 1025px) and (max-width: 1279px) {
+    .navbar-container {
+        gap: 0.85rem;
+    }
+
+    .nav-links {
+        gap: 1rem;
+    }
+
+    .nav-links a {
+        font-size: 0.84rem;
+    }
+}
+
+/* ── 1280px–1439px: slightly tighter spacing ── */
+@media (min-width: 1280px) and (max-width: 1439px) {
+    .navbar-container {
+        gap: 1.1rem;
+    }
+
+    .nav-links {
+        gap: 1.3rem;
+    }
+
+    .nav-links a {
+        font-size: 0.86rem;
+    }
+}
+
 /* ── Below 900px: hide CTA to free space ── */
 @media (max-width: 900px) {
     .nav-cta {
@@ -333,7 +363,12 @@
 .nav-auth-button:hover { background: var(--gold); color: var(--white); }
 .contact-sign-in { min-height: 36px; }
 
+/* Hide user name on screens below 1280px to save space */
+@media (max-width: 1279px) {
+    .signed-in-label { display: none; }
+    .signed-in-profile { max-width: 80px; }
+}
+
 @media (max-width: 768px) {
     .signed-in-profile { max-width: 100px; }
-    .signed-in-label { display: none; }
 }

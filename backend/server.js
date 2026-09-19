@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 dotenv.config({ path: require('path').join(__dirname, '.env') });
 const { connectDatabase, mongoose } = require('./config/db');
+const { initializeGridFS } = require('./config/gridfs');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
@@ -93,7 +94,15 @@ app.use((error, req, res, next) => {
     res.status(status).json({ success: false, message: status === 500 ? 'An internal server error occurred.' : error.message });
 });
 
-connectDatabase();
+connectDatabase().then(() => {
+    // Initialize GridFS after database connection
+    initializeGridFS();
+    console.log('GridFS initialized for file storage');
+}).catch(err => {
+    console.error('Failed to connect to database:', err);
+    process.exit(1);
+});
+
 app.listen(PORT, () => console.log(`Law website server running on http://localhost:${PORT}`));
 
 module.exports = app;

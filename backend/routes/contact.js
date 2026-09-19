@@ -1,9 +1,12 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+const { Readable } = require('stream');
 const Contact = require('../models/Contact');
 const requireAuth = require('../middleware/requireAuth');
 const upload = require('../config/multer');
+const { getBucket } = require('../config/gridfs');
 
 const router = express.Router();
 const phonePattern = /^[6-9]\d{9}$/;
@@ -29,28 +32,48 @@ function escapeHtml(value) {
     return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
 
-// TEMPORARY: Auth optional for contact form
-// If user is authenticated, attach user info; otherwise allow anonymous submissions
-router.post('/', (req, res, next) => {
-    // Try to authenticate but don't fail if not authenticated
-    const authMiddleware = requireAuth;
-    authMiddleware(req, res, (err) => {
-        // Ignore auth errors, continue with or without user
-        next();
+/**
+ * Upload file buffer to GridFS
+ * Returns the GridFS file ID
+ */
+async function uploadToGridFS(fileBuffer, originalName, mimetype) {
+    const bucket = getBucket();
+    const filename = `${crypto.randomBytes(16).toString('hex')}_${originalName}`;
+    
+    return new Promise((resolve, reject) => {
+        const readableStream = Readable.from(fileBuffer);
+        const uploadStream = bucket.openUploadStream(filename, {
+            metadata: {
+                originalName,
+                mimetype,
+                uploadedAt: new Date()
+            }
+        });
+
+        readableStream.pipe(uploadStream)
+            .on('error', reject)
+            .on('finish', () => resolve(uploadStream.id));
     });
-}, upload.array('attachments', 5), validateContact, async (req, res, next) => {
+}
+
+router.post('/', requireAuth, upload.array('attachments', 5), validateContact, async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(422).json({ success: false, errors: errors.array().map((error) => ({ field: error.path, message: error.msg })) });
     }
 
     try {
-        const attachments = (req.files || []).map((file) => ({
-            filename: file.filename,
-            originalName: file.originalname,
-            mimetype: file.mimetype,
-            size: file.size
-        }));
+        // Upload files to GridFS and collect metadata
+        const attachments = [];
+        for (const file of (req.files || [])) {
+            const gridfsId = await uploadToGridFS(file.buffer, file.originalname, file.mimetype);
+            attachments.push({
+                gridfsId: gridfsId.toString(),
+                originalName: file.originalname,
+                mimetype: file.mimetype,
+                size: file.size
+            });
+        }
 
         const contact = await Contact.create({
             name: req.body.name,
@@ -58,7 +81,7 @@ router.post('/', (req, res, next) => {
             phone: req.body.phone,
             caseType: req.body.caseType,
             message: req.body.message,
-            userId: req.user ? req.user._id : null,  // Optional user ID
+            userId: req.user._id,  // Required - user must be authenticated
             attachments
         });
 

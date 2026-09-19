@@ -743,3 +743,22 @@ docker-compose up
 ---
 
 **Deployment prepared by Kiro on September 18, 2026**
+
+
+---
+
+## Frontend File Structure (Important!)
+
+The repository has HTML files in TWO locations:
+- **Source**: `frontend/public/` (edit here)
+- **Deployed**: Repository root (Vercel serves from here)
+
+**Why?** Vercel serves from repository root by default. See `FRONTEND_STRUCTURE.md` for full explanation.
+
+**Workflow:**
+1. Edit HTML/config files in `frontend/public/`
+2. Run: `node sync-frontend.js`
+3. Commit both source and root files
+4. Push to GitHub
+
+**Never edit root HTML files directly** - they will be overwritten by the sync script.

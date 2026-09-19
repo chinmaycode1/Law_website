@@ -1,5 +1,4 @@
 const multer = require('multer');
-const path = require('path');
 const crypto = require('crypto');
 
 const allowedMimeTypes = [
@@ -9,16 +8,8 @@ const allowedMimeTypes = [
     'application/pdf'
 ];
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '..', 'uploads'));
-    },
-    filename: (req, file, cb) => {
-        const randomName = crypto.randomBytes(16).toString('hex');
-        const ext = path.extname(file.originalname);
-        cb(null, `${randomName}${ext}`);
-    }
-});
+// Use memory storage - files will be uploaded to GridFS in the route handler
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
     if (!allowedMimeTypes.includes(file.mimetype)) {

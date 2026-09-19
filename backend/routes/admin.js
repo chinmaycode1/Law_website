@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
@@ -9,6 +8,7 @@ const AvailabilitySlot = require('../models/AvailabilitySlot');
 const adminAuth = require('../middleware/adminAuth');
 const { isConfigured, razorpay } = require('../config/razorpay');
 const { formatDate } = require('../utils/slotDate');
+const { getBucket } = require('../config/gridfs');
 
 const router = express.Router();
 const statuses = ['new', 'contacted', 'scheduled', 'resolved'];
@@ -125,21 +125,30 @@ router.get('/contacts/:id', async (req, res, next) => {
     }
 });
 
-// Serve attachment files to admin
-router.get('/contacts/:id/attachments/:filename', async (req, res, next) => {
+// Serve attachment files to admin from GridFS
+router.get('/contacts/:id/attachments/:gridfsId', async (req, res, next) => {
     try {
         const contact = await Contact.findById(req.params.id).lean();
         if (!contact) return res.status(404).json({ error: 'Contact not found.' });
 
-        const attachment = contact.attachments && contact.attachments.find((a) => a.filename === req.params.filename);
+        const attachment = contact.attachments && contact.attachments.find((a) => a.gridfsId === req.params.gridfsId);
         if (!attachment) return res.status(404).json({ error: 'Attachment not found.' });
 
-        const filePath = path.join(__dirname, '..', 'uploads', attachment.filename);
-        if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on server.' });
+        const bucket = getBucket();
+        const objectId = new mongoose.Types.ObjectId(req.params.gridfsId);
+        
+        // Stream file from GridFS
+        const downloadStream = bucket.openDownloadStream(objectId);
+        
+        downloadStream.on('error', (error) => {
+            console.error('GridFS download error:', error);
+            return res.status(404).json({ error: 'File not found in storage.' });
+        });
 
         res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.originalName)}"`);
         res.setHeader('Content-Type', attachment.mimetype);
-        return res.sendFile(filePath);
+        
+        downloadStream.pipe(res);
     } catch (error) {
         return next(error);
     }
