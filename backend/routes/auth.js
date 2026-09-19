@@ -12,7 +12,15 @@ function isProduction() {
 }
 
 function sessionCookieOptions() {
-    return { httpOnly: true, secure: isProduction(), sameSite: 'lax', maxAge: 2 * 60 * 60 * 1000, path: '/' };
+    // For cross-origin cookies (Vercel -> Render), we need sameSite: 'none' and secure: true
+    // This allows the session cookie to be sent from the frontend (different domain) to backend
+    return { 
+        httpOnly: true, 
+        secure: true,  // Always true for production (required for sameSite: 'none')
+        sameSite: isProduction() ? 'none' : 'lax',  // 'none' for production cross-origin, 'lax' for local dev
+        maxAge: 2 * 60 * 60 * 1000, 
+        path: '/' 
+    };
 }
 
 router.get('/config', (req, res) => {
